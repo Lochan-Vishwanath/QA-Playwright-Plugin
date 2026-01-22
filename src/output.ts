@@ -56,9 +56,8 @@ export function parseAgentOutput(output: string): {
     };
 
     // Check for status - look for "Status:" line anywhere in output
-    // Pattern matches "Status:" followed by optional whitespace and PASSED/FAILED (with or without emoji)
-    // Also handles indented or quoted Status: lines
-    const statusMatch = output.match(/Status:\s*([A-Za-z]+)/m);
+    // Pattern matches "Status:" followed by any characters and PASSED/FAILED (case insensitive)
+    const statusMatch = output.match(/Status:\s*([A-Za-z]+)/i);
     if (statusMatch) {
         const status = statusMatch[1].toUpperCase();
         result.success = status === "PASSED";
@@ -97,7 +96,12 @@ export function parseAgentOutput(output: string): {
         const errorLines = errorsBlock
             .split("\n")
             .map((line) => line.replace(/^-\s*/, "").trim())
-            .filter((line) => line && line !== "None" && line !== "N/A");
+            .filter((line) => line && 
+                line !== "None" && 
+                line !== "N/A" &&
+                !line.includes("[error message if any]") &&
+                !line.includes("...") &&
+                line.length > 3);
         result.errors = errorLines;
     }
 
