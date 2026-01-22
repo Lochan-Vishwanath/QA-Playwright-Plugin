@@ -58,10 +58,10 @@ Options:
   -h, --help           Show help
 ```
 
-> **Note for Windows**: Use backslashes for paths or escape them:
-> ```cmd
-> node dist\bin\qa-test.js "Test instruction" --output C:\Users\<username>\qa-results
-> ```
+**Note for Windows**: Use backslashes for paths or escape them:
+```cmd
+node dist\bin\qa-test.js "Test instruction" --output C:\Users\<username>\qa-results
+```
 
 ### Examples
 
