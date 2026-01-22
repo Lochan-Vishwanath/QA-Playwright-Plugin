@@ -19,6 +19,13 @@ export interface CLIOptions {
 }
 
 /**
+ * Log callback for verbose output
+ */
+export interface LogCallback {
+    (type: "prompt" | "output", content: string): void;
+}
+
+/**
  * Parsed Test Step
  */
 export interface TestStep {

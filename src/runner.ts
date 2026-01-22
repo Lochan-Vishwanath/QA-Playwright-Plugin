@@ -1,5 +1,5 @@
 import { createOpencode } from "@opencode-ai/sdk";
-import type { CLIOptions, QATestResult } from "./types";
+import type { CLIOptions, QATestResult, LogCallback } from "./types";
 import { generateQAPrompt } from "./agent";
 import {
     formatOutput,
@@ -13,11 +13,47 @@ import * as path from "path";
 const POLL_INTERVAL_MS = 500;
 const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes default
 
+/**
+ * Check if content should be logged (filter out internal/system messages)
+ */
+function shouldLogContent(content: string): boolean {
+    const lowerContent = content.toLowerCase().trim();
+    
+    // Skip very short messages (likely internal markers or partial words)
+    if (content.length < 20 || lowerContent.length < 10) return false;
+    
+    // Skip internal system markers and mode indicators
+    const skipPatterns = [
+        '[analyze-mode]', '[analysis-mode]', '[think]', '[thinking]',
+        '[plan-mode]', 'analysis mode', 'thinking process',
+        'context gathering', 'synthesize findings',
+        'direct tools:', 'explore agents', 'librarian agents', 'consult oracle',
+        'parallel:', 'if complex'
+    ];
+    
+    // Check if content starts with or is mostly these markers
+    for (const pattern of skipPatterns) {
+        if (lowerContent.startsWith(pattern.toLowerCase())) return false;
+    }
+    
+    // Skip if it's a todo list or planning message
+    if (lowerContent.includes('todo list') && lowerContent.includes('parallel')) {
+        return false;
+    }
+    
+    // Skip very short single-word messages
+    if (content.split(/\s+/).length <= 3 && content.length < 50) return false;
+    
+    return true;
+}
+
 interface EventState {
     idle: boolean;
     error: boolean;
     lastError: string;
     messageContent: string;
+    logCallback?: LogCallback;
+    lastLoggedOutput?: string;
 }
 
 /**
@@ -81,13 +117,25 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
                 error: false,
                 lastError: "",
                 messageContent: "",
+                logCallback: verbose ? ((type, content) => {
+                    if (type === "prompt") {
+                        console.error(`[prompt] ${content}`);
+                    } else if (type === "output") {
+                        console.error(`[output] ${content}`);
+                    }
+                }) : undefined,
             };
 
             // Start processing events in background
-            const eventPromise = processEvents(events.stream, eventState, abortController.signal, verbose);
+            const eventPromise = processEvents(events.stream, eventState, abortController.signal);
 
             // Generate the QA prompt with the test directory
             const prompt = generateQAPrompt(instruction, testDir, baseUrl);
+
+            // Log prompt if verbose logging is enabled
+            if (eventState.logCallback) {
+                eventState.logCallback("prompt", prompt);
+            }
 
             // Send prompt
             await client.session.promptAsync({
@@ -169,8 +217,7 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
 async function processEvents(
     stream: AsyncIterable<{ type: string; properties?: Record<string, unknown> }>,
     state: EventState,
-    signal: AbortSignal,
-    verbose: boolean = false
+    signal: AbortSignal
 ): Promise<void> {
     try {
         // Create an iterator from the stream
@@ -229,6 +276,34 @@ async function processEvents(
                 }
 
                 if (textContent) {
+                    // Only log substantial content (filter out internal/system messages)
+                    if (!shouldLogContent(textContent)) {
+                        // Still accumulate the content for parsing, just don't log it
+                        if (state.messageContent) {
+                            state.messageContent = state.messageContent + "\n" + textContent;
+                        } else {
+                            state.messageContent = textContent;
+                        }
+                        continue;
+                    }
+                    
+                    // Skip if content is identical to what we last logged (deduplication)
+                    if (state.lastLoggedOutput === textContent) {
+                        // Still accumulate the content for parsing
+                        if (state.messageContent) {
+                            state.messageContent = state.messageContent + "\n" + textContent;
+                        } else {
+                            state.messageContent = textContent;
+                        }
+                        continue;
+                    }
+                    
+                    // Log output if verbose logging is enabled
+                    if (state.logCallback) {
+                        state.logCallback("output", textContent);
+                        state.lastLoggedOutput = textContent;
+                    }
+
                     // Accumulate message content - append new parts
                     if (state.messageContent) {
                         state.messageContent = state.messageContent + "\n" + textContent;
