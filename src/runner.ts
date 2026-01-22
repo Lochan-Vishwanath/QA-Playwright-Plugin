@@ -183,17 +183,23 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
                     parsed.scriptPath || scriptPath,
                     "failed"
                 );
-            } else if (parsed.success) {
-                result = createSuccessResult(
-                    parsed.scriptPath || scriptPath,
-                    parsed.testStatus
-                );
             } else {
-                result = createFailureResult(
-                    parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
-                    parsed.scriptPath || scriptPath,
-                    "failed"
-                );
+                // Use the testStatus extracted from the agent's output (passed/failed)
+                // This is independent of whether we could generate the script (instructions_completed)
+                const testStatus = parsed.testStatus;
+                
+                if (testStatus === "passed") {
+                    result = createSuccessResult(
+                        parsed.scriptPath || scriptPath,
+                        "passed"
+                    );
+                } else {
+                    result = createFailureResult(
+                        parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
+                        parsed.scriptPath || scriptPath,
+                        "failed"
+                    );
+                }
             }
 
             cleanup();

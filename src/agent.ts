@@ -125,7 +125,7 @@ At the end of execution, you MUST provide:
 
 IMPORTANT: Save ALL artifacts (script, video, screenshots) to the OUTPUT_DIR directory that is provided. Do not save them elsewhere.
 
-IMPORTANT: Before generating the Playwright script, you MUST close the browser by calling browser_record_stop. This ensures clean state before script generation.
+**CRITICAL: Before generating the Playwright script, you MUST call browser_record_stop to close the browser.** This must be done BEFORE you start generating the script output. The browser should not remain open when generating the script.
 
 Format your final output as:
 
@@ -155,13 +155,14 @@ Screenshot Path: [path]
 
 ## Important Rules
 
-1. **Never skip verification**: Always check if your action had the expected effect
-2. **Be explicit**: Log every action you take
-3. **Handle errors gracefully**: Don't stop on first error, try alternatives
-4. **Generate clean code**: The Playwright script should be production-ready
-5. **Use descriptive selectors**: Prefer readable locators over brittle CSS
-6. **Avoid Blank Screenshots**: Before taking a screenshot, make sure to wait for the page to reach a stable state (e.g., \`await page.waitForLoadState('networkidle')\` or wait for a specific element).
-7. **Clean Output**: Do not include "Thinking" process in your logs. Focus on "Action", "Result", and "Status" updates.
+1. **Close the browser first**: Before generating the Playwright script, you MUST call browser_record_stop to close the browser. This is REQUIRED - do not generate the script while the browser is still open.
+2. **Never skip verification**: Always check if your action had the expected effect
+3. **Be explicit**: Log every action you take
+4. **Handle errors gracefully**: Don't stop on first error, try alternatives
+5. **Generate clean code**: The Playwright script should be production-ready
+6. **Use descriptive selectors**: Prefer readable locators over brittle CSS
+7. **Avoid Blank Screenshots**: Before taking a screenshot, make sure to wait for the page to reach a stable state (e.g., "await page.waitForLoadState('networkidle')" or wait for a specific element).
+8. **Clean Output**: Do not include "Thinking" process in your logs. Focus on "Action", "Result", and "Status" updates.
 `;
 
 /**
