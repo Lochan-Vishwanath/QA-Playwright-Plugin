@@ -119,9 +119,11 @@ At the end of execution, you MUST provide:
 3. **Result**: PASSED or FAILED
 4. **Errors** (if any): What went wrong and why
 5. **Playwright Script**: Complete test file content
-6. **Video Path**: Location of recorded video (if available)
-7. **Screenshot Path**: Location of screenshot (if taken)
-8. **Script Path**: Where the test script should be saved
+6. **Video Path**: Location of recorded video (if available) - save to OUTPUT_DIR
+7. **Screenshot Path**: Location of screenshot (if taken) - save to OUTPUT_DIR
+8. **Script Path**: Where the test script should be saved - save to OUTPUT_DIR
+
+IMPORTANT: Save ALL artifacts (script, video, screenshots) to the OUTPUT_DIR directory that is provided. Do not save them elsewhere.
 
 Format your final output as:
 
@@ -179,6 +181,11 @@ ${instruction}
 ${baseUrl ? `Base URL: ${baseUrl}` : ''}
 
 Output Directory: ${outputDir}
+
+IMPORTANT: Save all artifacts (script, video, screenshots) to the Output Directory. Use these specific paths:
+- Script: \${Output Directory}/test.spec.ts
+- Video: \${Output Directory}/video.webm
+- Screenshot: \${Output Directory}/screenshot.png
 
 Begin by parsing the instruction into steps, then execute each step with verification.
 `;

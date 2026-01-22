@@ -6,7 +6,6 @@ import {
     createSuccessResult,
     createFailureResult,
     parseAgentOutput,
-    generateArtifactPaths,
 } from "./output";
 import * as fs from "fs";
 import * as path from "path";
@@ -34,6 +33,15 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
 
     const abortController = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Generate timestamp and create the test folder at the start
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const testDir = path.join(outputDir, `qa-test-${timestamp}`);
+
+    // Create the test directory immediately
+    if (!fs.existsSync(testDir)) {
+        fs.mkdirSync(testDir, { recursive: true });
+    }
 
     // Set up timeout
     if (timeout > 0) {
@@ -78,8 +86,8 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
             // Start processing events in background
             const eventPromise = processEvents(events.stream, eventState, abortController.signal, verbose);
 
-            // Generate the QA prompt
-            const prompt = generateQAPrompt(instruction, outputDir, baseUrl);
+            // Generate the QA prompt with the test directory
+            const prompt = generateQAPrompt(instruction, testDir, baseUrl);
 
             // Send prompt
             await client.session.promptAsync({
@@ -107,7 +115,9 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
 
             // Parse the agent's output
             const parsed = parseAgentOutput(eventState.messageContent);
-            const { scriptPath, videoPath, screenshotPath } = generateArtifactPaths(outputDir);
+
+            // Use pre-created paths in the timestamped folder
+            const scriptPath = path.join(testDir, "test.spec.ts");
 
             // Save script if content was generated
             if (parsed.scriptContent) {
@@ -117,29 +127,26 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
             }
 
             // Return result
+            let result: QATestResult;
+
             if (eventState.error) {
-                return createFailureResult(
+                result = createFailureResult(
                     [eventState.lastError, ...parsed.errors],
-                    parsed.videoPath || videoPath,
-                    parsed.scriptPath,
-                    parsed.screenshotPath || screenshotPath
+                    parsed.scriptPath || scriptPath
+                );
+            } else if (parsed.success) {
+                result = createSuccessResult(
+                    parsed.scriptPath || scriptPath
+                );
+            } else {
+                result = createFailureResult(
+                    parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
+                    parsed.scriptPath || scriptPath
                 );
             }
 
-            if (parsed.success) {
-                return createSuccessResult(
-                    parsed.scriptPath || scriptPath,
-                    parsed.videoPath || videoPath,
-                    parsed.screenshotPath || screenshotPath
-                );
-            }
-
-            return createFailureResult(
-                parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
-                parsed.videoPath || videoPath,
-                parsed.scriptPath,
-                parsed.screenshotPath || screenshotPath
-            );
+            cleanup();
+            return result;
         } catch (err) {
             cleanup();
             throw err;
@@ -193,29 +200,40 @@ async function processEvents(
             const event = result.value;
 
             // Track message updates to capture agent output
-            if (event.type === "message.updated") {
+            if (event.type === "message.updated" || event.type === "message.part.updated") {
                 const props = event.properties as Record<string, unknown> | undefined;
-                const info = props?.info as Record<string, unknown> | undefined;
-                const parts = info?.parts as Array<{ type: string; text?: string }> | undefined;
 
-                if (parts) {
-                    const textParts = parts
-                        .filter((p) => p.type === "text" && p.text)
-                        .map((p) => p.text);
+                // Extract text content based on event type
+                let textContent = "";
 
-                    if (textParts.length > 0) {
-                        const newContent = textParts.join("\n");
-                        if (verbose && newContent !== state.messageContent) {
-                            const added = newContent.substring(state.messageContent.length);
-                            if (added) {
-                                // Filter out "Thinking:" lines and blocks to reduce noise
-                                const cleanAdded = added.replace(/^Thinking:.*(\n|$)/gm, "");
-                                if (cleanAdded.trim()) {
-                                    process.stderr.write(cleanAdded);
-                                }
-                            }
-                        }
-                        state.messageContent = newContent;
+                if (event.type === "message.part.updated") {
+                    // For part.updated events, content is in "part.text"
+                    const part = props?.part as Record<string, unknown> | undefined;
+                    if (part && typeof part.text === "string") {
+                        textContent = part.text;
+                    }
+                } else {
+                    // For message.updated events, look for info.parts or info.content
+                    const info = props?.info as Record<string, unknown> | undefined;
+                    const parts = info?.parts as Array<{ type: string; text?: string }> | undefined;
+
+                    if (parts) {
+                        const textParts = parts
+                            .filter((p) => p.type === "text" && p.text)
+                            .map((p) => p.text);
+                        textContent = textParts.join("\n");
+                    } else if (typeof info?.content === "string") {
+                        // Fallback to info.content if available
+                        textContent = info.content;
+                    }
+                }
+
+                if (textContent) {
+                    // Accumulate message content - append new parts
+                    if (state.messageContent) {
+                        state.messageContent = state.messageContent + "\n" + textContent;
+                    } else {
+                        state.messageContent = textContent;
                     }
                 }
             }

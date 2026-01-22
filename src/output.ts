@@ -11,15 +11,11 @@ export function formatOutput(result: QATestResult): string {
  * Create a success result
  */
 export function createSuccessResult(
-    scriptPath: string,
-    videoPath: string,
-    screenshotPath?: string
+    scriptPath: string
 ): QATestResult {
     return {
         instructions_completed: "yes",
         link_to_playwrightscript: scriptPath,
-        link_to_video: videoPath,
-        link_to_screenshot: screenshotPath,
     };
 }
 
@@ -28,15 +24,11 @@ export function createSuccessResult(
  */
 export function createFailureResult(
     errors: string[],
-    videoPath: string = "",
-    scriptPath: string = "",
-    screenshotPath: string = ""
+    scriptPath: string = ""
 ): QATestResult {
     return {
         instructions_completed: "no",
         link_to_playwrightscript: scriptPath,
-        link_to_video: videoPath,
-        link_to_screenshot: screenshotPath,
         error: errors,
     };
 }
@@ -48,52 +40,45 @@ export function parseAgentOutput(output: string): {
     success: boolean;
     scriptContent: string;
     scriptPath: string;
-    videoPath: string;
-    screenshotPath: string;
     errors: string[];
 } {
     const result = {
         success: false,
         scriptContent: "",
         scriptPath: "",
-        videoPath: "",
-        screenshotPath: "",
         errors: [] as string[],
     };
 
-    // Check for status
-    const statusMatch = output.match(/Status:\s*(PASSED|FAILED)/i);
+    // Check for status - look for "Status:" line anywhere in output
+    // Pattern matches "Status:" followed by optional whitespace and PASSED/FAILED (with or without emoji)
+    const statusMatch = output.match(/^Status:\s*([A-Za-z]+)/m);
     if (statusMatch) {
         result.success = statusMatch[1].toUpperCase() === "PASSED";
     }
 
-    // Extract script content
+    // Extract script content - handle multiple formats
+    // Format 1: === PLAYWRIGHT SCRIPT === followed by content
     const scriptMatch = output.match(
-        /=== PLAYWRIGHT SCRIPT ===\s*\n([\s\S]*?)(?:===|$)/
+        /=== PLAYWRIGHT SCRIPT ===\s*\n([\s\S]*?)(?:\n=== |$)/m
     );
     if (scriptMatch) {
-        result.scriptContent = scriptMatch[1].trim();
+        let content = scriptMatch[1].trim();
         // Clean up markdown code blocks if present
-        result.scriptContent = result.scriptContent
+        content = content
             .replace(/^```typescript\n?/m, "")
             .replace(/^```\s*$/m, "")
             .trim();
+        // Only set if it's not a placeholder
+        if (content && !content.includes("[full script content]") && content.length > 50) {
+            result.scriptContent = content;
+        }
     }
 
-    // Extract paths from artifacts section
-    const scriptPathMatch = output.match(/Script Path:\s*(.+)/i);
+    // Extract paths from artifacts section - look for the actual paths with backticks at the end of output
+    // The agent outputs: **Script Path**: `C:\path\to\file`
+    const scriptPathMatch = output.match(/\*\*Script Path\*\*:\s*`([^`]+)`/);
     if (scriptPathMatch) {
         result.scriptPath = scriptPathMatch[1].trim();
-    }
-
-    const videoPathMatch = output.match(/Video Path:\s*(.+)/i);
-    if (videoPathMatch) {
-        result.videoPath = videoPathMatch[1].trim();
-    }
-
-    const screenshotPathMatch = output.match(/Screenshot Path:\s*(.+)/i);
-    if (screenshotPathMatch) {
-        result.screenshotPath = screenshotPathMatch[1].trim();
     }
 
     // Extract errors
@@ -116,15 +101,13 @@ export function parseAgentOutput(output: string): {
 import * as fs from "fs";
 import * as path from "path";
 
-// ... (previous code)
-
 /**
  * Generate default paths for artifacts
  */
 export function generateArtifactPaths(
     outputDir: string,
     timestamp: string = new Date().toISOString().replace(/[:.]/g, "-")
-): { scriptPath: string; videoPath: string; screenshotPath: string } {
+): { scriptPath: string } {
     const testDir = path.join(outputDir, `qa-test-${timestamp}`);
 
     // Ensure the timestamped subdirectory exists
@@ -134,7 +117,5 @@ export function generateArtifactPaths(
 
     return {
         scriptPath: path.join(testDir, "test.spec.ts"),
-        videoPath: path.join(testDir, "video.webm"),
-        screenshotPath: path.join(testDir, "screenshot.png")
     };
 }

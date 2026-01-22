@@ -4,8 +4,6 @@
 export interface QATestResult {
     instructions_completed: "yes" | "no";
     link_to_playwrightscript: string;
-    link_to_video: string;
-    link_to_screenshot?: string;
     error?: string[];
 }
 
@@ -40,5 +38,4 @@ export interface TestContext {
     steps: TestStep[];
     errors: string[];
     scriptPath: string;
-    videoPath: string;
 }
