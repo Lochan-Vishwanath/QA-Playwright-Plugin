@@ -166,8 +166,31 @@ async function processEvents(
     verbose: boolean = false
 ): Promise<void> {
     try {
-        for await (const event of stream) {
-            if (signal.aborted) break;
+        // Create an iterator from the stream
+        const iterator = stream[Symbol.asyncIterator]();
+        
+        while (!signal.aborted) {
+            // Use Promise.race to allow abort signal to break the loop
+            const nextEvent = iterator.next();
+            
+            const result = await Promise.race([
+                nextEvent,
+                new Promise<{ done: true }>((resolve) => {
+                    // Check abort signal every 500ms
+                    const checkInterval = setInterval(() => {
+                        if (signal.aborted) {
+                            clearInterval(checkInterval);
+                            resolve({ done: true });
+                        }
+                    }, 500);
+                })
+            ]);
+            
+            if (result.done || signal.aborted) {
+                break;
+            }
+            
+            const event = result.value;
 
             // Track message updates to capture agent output
             if (event.type === "message.updated") {

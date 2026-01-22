@@ -39,6 +39,9 @@ bun run dev "Navigate to example.com and verify the heading says 'Example Domain
 # After building
 ./dist/bin/qa-test.js "Test instruction here"
 
+# Windows (Command Prompt)
+node dist\bin\qa-test.js "Test instruction here"
+
 # After npm link
 qa-test "Test instruction here"
 ```
@@ -55,6 +58,11 @@ Options:
   -h, --help           Show help
 ```
 
+> **Note for Windows**: Use backslashes for paths or escape them:
+> ```cmd
+> node dist\bin\qa-test.js "Test instruction" --output C:\Users\<username>\qa-results
+> ```
+
 ### Examples
 
 ```bash
@@ -65,10 +73,13 @@ qa-test "Go to example.com and verify the title contains 'Example'"
 qa-test "Navigate to /login, enter test@example.com in email, click Submit" \
   --base-url https://staging.myapp.com
 
-# Complex flow with custom output
+# Complex flow with custom output (Linux/macOS)
 qa-test "Test checkout: add item to cart, go to checkout, fill shipping form" \
   --output ~/qa-results \
   --timeout 600000
+
+# Windows Command Prompt
+node dist\bin\qa-test.js "Test checkout" --output C:\Users\<username>\qa-results --timeout 600000
 ```
 
 ## Output Format
@@ -114,7 +125,7 @@ The plugin outputs JSON to stdout:
 
 Add the Playwright MCP server to your OpenCode configuration file.
 
-**Location**: `~/.config/opencode/opencode.json`
+**Location**: `~/.config/opencode/opencode.json` (Linux/macOS) or `%USERPROFILE%\.config\opencode\opencode.json` (Windows)
 
 ```json
 {
@@ -136,12 +147,65 @@ Add the Playwright MCP server to your OpenCode configuration file.
 ### Step 2: Verify Configuration
 
 ```bash
-# Check your config
+# Check your config (Linux/macOS)
 cat ~/.config/opencode/opencode.json
+
+# Check your config (Windows)
+type %USERPROFILE%\.config\opencode\opencode.json
 
 # Test opencode starts correctly
 opencode --version
 ```
+
+### Windows Setup
+
+On Windows, the OpenCode executable needs to be accessible. The plugin attempts to auto-detect its location, but if you encounter `ENOENT` errors:
+
+#### Option 1: Set OPENCODE_BIN_PATH Environment Variable
+
+```powershell
+# In PowerShell (run as Administrator)
+[Environment]::SetEnvironmentVariable("OPENCODE_BIN_PATH", "$env:USERPROFILE\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe", "User")
+
+# Restart your terminal and verify
+echo $env:OPENCODE_BIN_PATH
+```
+
+#### Option 2: Copy opencode.exe to npm Directory
+
+```cmd
+# In Command Prompt as Administrator
+copy "%USERPROFILE%\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe" "%USERPROFILE%\AppData\Roaming\npm\opencode.exe"
+```
+
+#### Option 3: Add to System PATH
+
+```powershell
+# In PowerShell (run as Administrator)
+$path = "$env:USERPROFILE\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin"
+[Environment]::SetEnvironmentVariable("PATH", "$path;$env:PATH", "User")
+
+# Restart your terminal
+```
+
+#### Windows Troubleshooting
+
+If you see `ENOENT: no such file or directory, uv_spawn 'opencode'`:
+
+1. Verify OpenCode is installed:
+   ```cmd
+   where opencode
+   ```
+
+2. Check if the binary exists:
+   ```cmd
+   dir "%USERPROFILE%\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe"
+   ```
+
+3. Try running directly:
+   ```cmd
+   "%USERPROFILE%\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe" --version
+   ```
 
 ### Optional: Enable Video Recording
 
