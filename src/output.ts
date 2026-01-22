@@ -57,7 +57,8 @@ export function parseAgentOutput(output: string): {
 
     // Check for status - look for "Status:" line anywhere in output
     // Pattern matches "Status:" followed by optional whitespace and PASSED/FAILED (with or without emoji)
-    const statusMatch = output.match(/^Status:\s*([A-Za-z]+)/m);
+    // Also handles indented or quoted Status: lines
+    const statusMatch = output.match(/Status:\s*([A-Za-z]+)/m);
     if (statusMatch) {
         const status = statusMatch[1].toUpperCase();
         result.success = status === "PASSED";
