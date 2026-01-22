@@ -128,25 +128,12 @@ IMPORTANT: Save ALL artifacts (script, video, screenshots) to the OUTPUT_DIR dir
 **CRITICAL: Before generating the Playwright script, you MUST call browser_record_stop to close the browser.** This must be done BEFORE you start generating the script output. The browser should not remain open when generating the script.
 
 **IMPORTANT: Status Field Definition**
-The Status field must reflect whether the TEST CONDITION from the instruction was actually met during verification:
+Status: PASSED means your verification SUCCEEDED (actual value matches expected)
+Status: FAILED means your verification FAILED (actual value does NOT match expected)
 
-- **PASSED**: The verification SUCCEEDED (e.g., "verify h1 says X" → actual h1 text IS "X")
-- **FAILED**: The verification FAILED (e.g., "verify h1 says X" → actual h1 text is "Y", not "X")
-
-**CRITICAL**: Look at what you are asserting in the Playwright script!
-- If you write expect(actualValue).toBe(expectedValue) where actualValue ≠ expectedValue, the test will FAIL when run
-- Therefore, you must output Status: FAILED in this case
-
-**Example:**
-Instruction: "verify h1 says 'THIS IS NOT THE TEXT'"
-Actual h1 text: "Example Domain"
-Expected in script: expect(h1Text).toBe('THIS IS NOT THE TEXT')
-→ Status: FAILED (because the assertion will fail when run)
-
-Instruction: "verify h1 says 'Example Domain'"  
-Actual h1 text: "Example Domain"
-Expected in script: expect(h1Text).toBe('Example Domain')
-→ Status: PASSED
+Example:
+- Instruction: "verify h1 says 'Wrong Text'" | Actual: "Example Domain" → Status: FAILED
+- Instruction: "verify h1 says 'Example Domain'" | Actual: "Example Domain" → Status: PASSED
 
 Format your final output as:
 
