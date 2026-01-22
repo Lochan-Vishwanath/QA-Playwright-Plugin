@@ -3,6 +3,7 @@
  */
 export interface QATestResult {
     instructions_completed: "yes" | "no";
+    test_status: "passed" | "failed";
     link_to_playwrightscript: string;
     error?: string[];
 }

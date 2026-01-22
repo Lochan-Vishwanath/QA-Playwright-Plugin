@@ -11,10 +11,12 @@ export function formatOutput(result: QATestResult): string {
  * Create a success result
  */
 export function createSuccessResult(
-    scriptPath: string
+    scriptPath: string,
+    testStatus: "passed" | "failed" = "passed"
 ): QATestResult {
     return {
         instructions_completed: "yes",
+        test_status: testStatus,
         link_to_playwrightscript: scriptPath,
     };
 }
@@ -24,10 +26,12 @@ export function createSuccessResult(
  */
 export function createFailureResult(
     errors: string[],
-    scriptPath: string = ""
+    scriptPath: string = "",
+    testStatus: "passed" | "failed" = "failed"
 ): QATestResult {
     return {
         instructions_completed: "no",
+        test_status: testStatus,
         link_to_playwrightscript: scriptPath,
         error: errors,
     };
@@ -38,12 +42,14 @@ export function createFailureResult(
  */
 export function parseAgentOutput(output: string): {
     success: boolean;
+    testStatus: "passed" | "failed";
     scriptContent: string;
     scriptPath: string;
     errors: string[];
 } {
     const result = {
         success: false,
+        testStatus: "failed" as "passed" | "failed",
         scriptContent: "",
         scriptPath: "",
         errors: [] as string[],
@@ -53,7 +59,9 @@ export function parseAgentOutput(output: string): {
     // Pattern matches "Status:" followed by optional whitespace and PASSED/FAILED (with or without emoji)
     const statusMatch = output.match(/^Status:\s*([A-Za-z]+)/m);
     if (statusMatch) {
-        result.success = statusMatch[1].toUpperCase() === "PASSED";
+        const status = statusMatch[1].toUpperCase();
+        result.success = status === "PASSED";
+        result.testStatus = status === "PASSED" ? "passed" : "failed";
     }
 
     // Extract script content - handle multiple formats

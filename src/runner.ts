@@ -180,16 +180,19 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
             if (eventState.error) {
                 result = createFailureResult(
                     [eventState.lastError, ...parsed.errors],
-                    parsed.scriptPath || scriptPath
+                    parsed.scriptPath || scriptPath,
+                    "failed"
                 );
             } else if (parsed.success) {
                 result = createSuccessResult(
-                    parsed.scriptPath || scriptPath
+                    parsed.scriptPath || scriptPath,
+                    parsed.testStatus
                 );
             } else {
                 result = createFailureResult(
                     parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
-                    parsed.scriptPath || scriptPath
+                    parsed.scriptPath || scriptPath,
+                    "failed"
                 );
             }
 

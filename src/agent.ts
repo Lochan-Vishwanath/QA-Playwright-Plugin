@@ -116,7 +116,7 @@ At the end of execution, you MUST provide:
 
 1. **Summary**: Brief description of what was tested
 2. **Steps Executed**: List of actions taken
-3. **Result**: PASSED or FAILED
+3. **Result**: PASSED or FAILED (this is the TEST STATUS - independent of whether you could generate the script)
 4. **Errors** (if any): What went wrong and why
 5. **Playwright Script**: Complete test file content
 6. **Video Path**: Location of recorded video (if available) - save to OUTPUT_DIR
@@ -124,6 +124,8 @@ At the end of execution, you MUST provide:
 8. **Script Path**: Where the test script should be saved - save to OUTPUT_DIR
 
 IMPORTANT: Save ALL artifacts (script, video, screenshots) to the OUTPUT_DIR directory that is provided. Do not save them elsewhere.
+
+IMPORTANT: Before generating the Playwright script, you MUST close the browser by calling browser_record_stop. This ensures clean state before script generation.
 
 Format your final output as:
 
