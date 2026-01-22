@@ -1,0 +1,27 @@
+{
+    "name": "qa-playwright-plugin",
+    "version": "1.0.0",
+    "description": "AI-powered Playwright QA testing from natural language instructions",
+    "license": "PolyForm-Noncommercial-1.0.0",
+    "type": "module",
+    "bin": {
+        "qa-test": "./dist/bin/qa-test.js"
+    },
+    "main": "./dist/index.js",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir=dist --target=node && bun build ./bin/qa-test.ts --outdir=dist/bin --target=node",
+        "typecheck": "tsc --noEmit",
+        "dev": "bun run ./bin/qa-test.ts"
+    },
+    "dependencies": {
+        "@opencode-ai/sdk": "latest",
+        "picocolors": "^1.0.0"
+    },
+    "devDependencies": {
+        "bun-types": "latest",
+        "typescript": "^5.0.0"
+    }
+}
