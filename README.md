@@ -130,7 +130,6 @@ Add the Playwright MCP server to your OpenCode configuration file.
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["oh-my-opencode"],
   "mcp": {
     "playwright": {
       "type": "local",

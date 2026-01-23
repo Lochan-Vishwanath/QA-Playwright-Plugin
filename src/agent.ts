@@ -46,9 +46,7 @@ For EACH step:
    - Alternative selectors (role, text, label)
    - Wait for element to appear
    - Scroll into view
-   - Visual fallback (describe element location)
 4. **Record**: Log action for script generation
-5. **Screenshots**: When taking screenshots, ALWAYS ensure the page is fully loaded first (wait for network idle or key elements).
 
 
 ### Phase 3: Generate Script
@@ -94,19 +92,8 @@ You have access to Playwright MCP tools:
 - \`playwright_navigate\`: Go to a URL
 - \`playwright_click\`: Click an element
 - \`playwright_fill\`: Type into an input
-- \`playwright_screenshot\`: Capture the current page
 - \`playwright_get_text\`: Extract text from element
 - \`playwright_evaluate\`: Run JavaScript in browser
-
-**Video Recording Tools** (via @playwright/record-mcp with --record flag):
-- \`browser_record_start\`: Start recording (path, format options)
-- \`browser_record_stop\`: Stop and save recording
-- \`browser_record_pause\`: Pause the current recording
-- \`browser_record_resume\`: Resume a paused recording
-- \`browser_record_list\`: List recording files
-
-**IMPORTANT**: At the START of testing, call \`browser_record_start\` to begin recording.
-At the END, call \`browser_record_stop\` to save the video.
 
 ---
 
@@ -119,13 +106,9 @@ At the end of execution, you MUST provide:
 3. **Result**: PASSED or FAILED (this is the TEST STATUS - independent of whether you could generate the script)
 4. **Errors** (if any): What went wrong and why
 5. **Playwright Script**: Complete test file content
-6. **Video Path**: Location of recorded video (if available) - save to OUTPUT_DIR
-7. **Screenshot Path**: Location of screenshot (if taken) - save to OUTPUT_DIR
-8. **Script Path**: Where the test script should be saved - save to OUTPUT_DIR
+6. **Script Path**: Where the test script should be saved - save to OUTPUT_DIR
 
-IMPORTANT: Save ALL artifacts (script, video, screenshots) to the OUTPUT_DIR directory that is provided. Do not save them elsewhere.
-
-**CRITICAL: Before generating the Playwright script, you MUST call browser_record_stop to close the browser.** This must be done BEFORE you start generating the script output. The browser should not remain open when generating the script.
+IMPORTANT: Save the script to the OUTPUT_DIR directory that is provided. Do not save it elsewhere.
 
 **IMPORTANT: Status Field Definition**
 Status: PASSED means your verification SUCCEEDED (actual value matches expected)
@@ -155,22 +138,18 @@ Errors:
 
 === ARTIFACTS ===
 Script Path: [path]
-Video Path: [path]
-Screenshot Path: [path]
 \`\`\`
 
 ---
 
 ## Important Rules
 
-1. **Close the browser first**: Before generating the Playwright script, you MUST call browser_record_stop to close the browser. This is REQUIRED - do not generate the script while the browser is still open.
-2. **Never skip verification**: Always check if your action had the expected effect
-3. **Be explicit**: Log every action you take
-4. **Handle errors gracefully**: Don't stop on first error, try alternatives
-5. **Generate clean code**: The Playwright script should be production-ready
-6. **Use descriptive selectors**: Prefer readable locators over brittle CSS
-7. **Avoid Blank Screenshots**: Before taking a screenshot, make sure to wait for the page to reach a stable state (e.g., "await page.waitForLoadState('networkidle')" or wait for a specific element).
-8. **Clean Output**: Do not include "Thinking" process in your logs. Focus on "Action", "Result", and "Status" updates.
+1. **Never skip verification**: Always check if your action had the expected effect
+2. **Be explicit**: Log every action you take
+3. **Handle errors gracefully**: Don't stop on first error, try alternatives
+4. **Generate clean code**: The Playwright script should be production-ready
+5. **Use descriptive selectors**: Prefer readable locators over brittle CSS
+6. **Clean Output**: Do not include "Thinking" process in your logs. Focus on "Action", "Result", and "Status" updates.
 `;
 
 /**
@@ -193,10 +172,8 @@ ${baseUrl ? `Base URL: ${baseUrl}` : ''}
 
 Output Directory: ${outputDir}
 
-IMPORTANT: Save all artifacts (script, video, screenshots) to the Output Directory. Use these specific paths:
+IMPORTANT: Save the script to the Output Directory. Use this specific path:
 - Script: \${Output Directory}/test.spec.ts
-- Video: \${Output Directory}/video.webm
-- Screenshot: \${Output Directory}/screenshot.png
 
 Begin by parsing the instruction into steps, then execute each step with verification.
 `;
