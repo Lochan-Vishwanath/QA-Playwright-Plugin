@@ -227,16 +227,24 @@ If you see `ENOENT: no such file or directory, uv_spawn 'opencode'`:
    "%USERPROFILE%\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe" --version
    ```
 
-## How It Works
+## How It Works: The Synergy
 
-1. **Instruction Parsing**: The AI agent breaks down your natural language instruction into atomic test steps.
+This tool operates through a collaborative "Agentic Loop" between three core layers:
 
-2. **Verified Execution**: Each step is executed with verification. If an element isn't found, the agent tries:
-   - Alternative selectors (role, text, label)
-   - Wait for element to appear
-   - Visual fallback (describe element location)
+### 1. The Plugin (The Architect)
+*   **Strategy Definition**: It defines the "QA Engineer" persona and the strict fallback strategies (e.g., trying Role > Label > Text) that guide the AI.
+*   **Mission Control**: It orchestrates the session, manages CLI inputs, and handles the local filesystem to save generated scripts.
+*   **Artifact Extraction**: It parses the raw conversation from the AI to extract structured data and reproducible test code.
 
-3. **Script Generation**: As actions execute, the agent records them and generates a complete Playwright test script.
+### 2. OpenCode (The Platform & Dispatcher)
+*   **Agent Infrastructure**: It hosts the AI session and provides the secure environment for tool execution.
+*   **Automatic Feedback Loop**: When a browser action fails (e.g., "element not found"), OpenCode automatically feeds that error back to the AI. This "auto-submit" behavior allows the AI to immediately rethink its next move based on real-time browser state.
+*   **Tool Gateway**: It translates the AI's intent into actual Playwright commands via MCP (Model Context Protocol).
+
+### 3. The AI Agent (The Intelligent Worker)
+*   **Iterative Problem Solving**: The AI doesn't just "guess"; it follows the strategies provided by the plugin. If one locator fails, it autonomously decides which fallback to try next based on the DOM context it receives.
+*   **Verification**: After every action, the AI verifies the result (e.g., checking if a URL changed or a message appeared) before moving to the next step.
+*   **Script Composition**: As it works, it compiles its successful actions into a clean, production-ready Playwright script.
 
 ## Generated Scripts
 
@@ -261,9 +269,42 @@ npx playwright test /path/to/generated.spec.ts
 
 ## Architecture
 
+```text
+         [ 1. Input ]
+              │
+    ┌─────────▼────────────────────────┐
+    │     CLI (qa-test)                │
+    └─────────┬────────────────────────┘
+              │ 2. Setup & Rules
+    ┌─────────▼────────────────────────┐
+    │   QA Playwright Plugin           │◄────────────────┐
+    │   (System Persona & Strategy)    │                 │
+    └─────────┬────────────────────────┘                 │
+              │ 3. Dispatch                              │ 6. Extract
+    ┌─────────▼────────────────────────┐                 │    Results
+    │      OpenCode SDK                │                 │
+    │   (Agentic Loop Platform)        │                 │
+    └─────────┬───────────▲────────────┘                 │
+              │ 4. Prompt │ 5. Feedback                  │
+    ┌─────────▼───────────┴────────────┐        ┌────────┴─────────┐
+    │        AI Agent Logic            │        │  Local Artifacts │
+    │    (Intelligence & Decider)      │        │ (.spec.ts files) │
+    └─────────┬───────────▲────────────┘        └────────▲─────────┘
+              │           │                              │
+              │ Tools     │ Results                      │ 7. Save
+    ┌─────────▼───────────┴────────────┐        ┌────────┴─────────┐
+    │      Playwright MCP              ├────────►  Test Reports    │
+    │    (Browser Automation)          │        │     (JSON)       │
+    └─────────┬───────────▲────────────┘        └──────────────────┘
+              │           │
+              │ Actions   │ Selectors
+    ┌─────────▼───────────┴────────────┐
+    │       Real Browser               │
+    │   (Chrome/Firefox/Webkit)        │
+    └──────────────────────────────────┘
 ```
-CLI (qa-test) ──▶ OpenCode SDK ──▶ QA Engineer Agent ──▶ Playwright MCP ──▶ Browser Actions
-```
+
+The system is designed as a **feedback-driven loop**. The **Plugin** provides the rules, **OpenCode** provides the infrastructure, and the **AI** provides the intelligence to navigate complex web UIs iteratively until the mission is accomplished.
 
 ## License
 
