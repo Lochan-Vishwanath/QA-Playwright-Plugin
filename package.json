@@ -17,7 +17,9 @@
         "dev": "bun run ./bin/qa-test.ts"
     },
     "dependencies": {
-        "@opencode-ai/sdk": "latest",
+        "@google/generative-ai": "^0.21.0",
+        "@modelcontextprotocol/sdk": "^1.0.4",
+        "dotenv": "^16.4.7",
         "picocolors": "^1.0.0"
     },
     "devDependencies": {

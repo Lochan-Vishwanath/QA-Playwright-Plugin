@@ -64,10 +64,10 @@ export function parseAgentOutput(output: string): {
         result.testStatus = status === "PASSED" ? "passed" : "failed";
     }
 
-    // Extract script content - handle multiple formats
     // Format 1: === PLAYWRIGHT SCRIPT === followed by content
+    // Use a flexible regex that doesn't use 'm' flag to avoid stopping at newlines
     const scriptMatch = output.match(
-        /=== PLAYWRIGHT SCRIPT ===\s*\n([\s\S]*?)(?:\n=== |$)/m
+        /=== PLAYWRIGHT SCRIPT ===\s*[\r\n]+([\s\S]*?)(?:[\r\n]+=== |$)/
     );
     if (scriptMatch) {
         let content = scriptMatch[1].trim();
@@ -82,9 +82,9 @@ export function parseAgentOutput(output: string): {
         }
     }
 
-    // Extract paths from artifacts section - look for the actual paths with backticks at the end of output
-    // The agent outputs: **Script Path**: `C:\path\to\file`
-    const scriptPathMatch = output.match(/\*\*Script Path\*\*:\s*`([^`]+)`/);
+    // Extract paths from artifacts section
+    // Handle both formats: **Script Path**: `path` or Script Path: path
+    const scriptPathMatch = output.match(/(?:\*\*Script Path\*\*|Script Path):\s*`?([^`\r\n]+)`?/i);
     if (scriptPathMatch) {
         result.scriptPath = scriptPathMatch[1].trim();
     }
@@ -96,8 +96,8 @@ export function parseAgentOutput(output: string): {
         const errorLines = errorsBlock
             .split("\n")
             .map((line) => line.replace(/^-\s*/, "").trim())
-            .filter((line) => line && 
-                line !== "None" && 
+            .filter((line) => line &&
+                line !== "None" &&
                 line !== "N/A" &&
                 !line.includes("[error message if any]") &&
                 !line.includes("...") &&
