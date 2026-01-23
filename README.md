@@ -8,13 +8,18 @@ This plugin allows you to run browser tests by simply describing what you want t
 
 1. Parse your test instructions into executable steps
 2. Drive a browser using AI + Playwright
-3. Record video of the test execution
-4. Generate reusable Playwright test scripts
-5. Output structured JSON results
+3. Generate reusable Playwright test scripts
+4. Output structured JSON results
 
 ## Installation
 
 ```bash
+# Install OpenCode globally
+npm install -g opencode-ai
+
+# Install Playwright MCP globally
+npm install -g @playwright/mcp
+
 # Clone or copy the plugin
 cd qa-playwright-plugin
 
@@ -91,8 +96,7 @@ The plugin outputs JSON to stdout:
 ```json
 {
   "instructions_completed": "yes",
-  "link_to_playwrightscript": "/path/to/qa-test-2026-01-21.spec.ts",
-  "link_to_video": "/path/to/qa-test-2026-01-21.webm"
+  "link_to_playwrightscript": "/path/to/qa-test-2026-01-21.spec.ts"
 }
 ```
 
@@ -102,7 +106,6 @@ The plugin outputs JSON to stdout:
 {
   "instructions_completed": "no",
   "link_to_playwrightscript": "",
-  "link_to_video": "/path/to/recording.webm",
   "error": [
     "Could not find element: 'Submit Button'",
     "Retry attempts exhausted"
@@ -117,7 +120,6 @@ The plugin outputs JSON to stdout:
    ```bash
    npm install -g @playwright/mcp
    ```
-3. **Video recording** (optional): `npm install -g @playwright/record-mcp`
 
 ## Configuration
 
@@ -130,11 +132,28 @@ Add the Playwright MCP server to your OpenCode configuration file.
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/grok-code",
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"]
+      "command": [
+        "npx",
+        "@playwright/mcp@latest"
+      ]
     }
+  },
+  "permission": {
+    "external_directory": "allow",
+    "read": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "task": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "codesearch": "allow"
   }
 }
 ```
@@ -142,6 +161,8 @@ Add the Playwright MCP server to your OpenCode configuration file.
 > **Important**: The MCP config requires:
 > - `"type": "local"` for local command execution
 > - `"command"` as an **array** of strings (not a single string)
+
+Update to this in ~/.config/opencode/opencode.json
 
 ### Step 2: Verify Configuration
 
@@ -206,27 +227,6 @@ If you see `ENOENT: no such file or directory, uv_spawn 'opencode'`:
    "%USERPROFILE%\AppData\Roaming\npm\node_modules\opencode-ai\node_modules\opencode-windows-x64\bin\opencode.exe" --version
    ```
 
-### Optional: Enable Video Recording
-
-When `@playwright/record-mcp` becomes available on npm, you can enable recording:
-
-```json
-{
-  "mcp": {
-    "playwright": {
-      "type": "local",
-      "command": ["npx", "@playwright/record-mcp@latest", "--record", "--record-path", "./recordings"]
-    }
-  }
-}
-```
-
-Currently, video recording requires installing from the GitHub repository:
-```bash
-git clone https://github.com/korwabs/playwright-record-mcp
-cd playwright-record-mcp && npm install && npm run build
-```
-
 ## How It Works
 
 1. **Instruction Parsing**: The AI agent breaks down your natural language instruction into atomic test steps.
@@ -236,9 +236,7 @@ cd playwright-record-mcp && npm install && npm run build
    - Wait for element to appear
    - Visual fallback (describe element location)
 
-3. **Video Recording**: Uses `@playwright/record-mcp` with `--record` flag to capture all browser actions.
-
-4. **Script Generation**: As actions execute, the agent records them and generates a complete Playwright test script.
+3. **Script Generation**: As actions execute, the agent records them and generates a complete Playwright test script.
 
 ## Generated Scripts
 
@@ -264,22 +262,7 @@ npx playwright test /path/to/generated.spec.ts
 ## Architecture
 
 ```
-┌────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  CLI (qa-test) │ ──▶ │ OpenCode SDK │ ──▶ │  QA Engineer    │
-└────────────────┘     └──────────────┘     │  Agent Prompt   │
-                                            └────────┬────────┘
-                                                     │
-                                        ┌────────────▼────────────┐
-                                        │  @playwright/record-mcp │
-                                        │   (with --record flag)  │
-                                        └────────────┬────────────┘
-                                                     │
-                              ┌──────────────────────┴────────────────────┐
-                              │                                           │
-                       ┌──────▼──────┐                            ┌───────▼───────┐
-                       │   Browser   │                            │    Video      │
-                       │   Actions   │                            │   Recording   │
-                       └─────────────┘                            └───────────────┘
+CLI (qa-test) ──▶ OpenCode SDK ──▶ QA Engineer Agent ──▶ Playwright MCP ──▶ Browser Actions
 ```
 
 ## License
