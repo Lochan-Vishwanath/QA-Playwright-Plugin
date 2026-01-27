@@ -1,15 +1,19 @@
 # QA Playwright Plugin
 
-AI-powered Playwright QA testing from natural language instructions.
+AI-powered Playwright QA testing that **understands your codebase**.
 
 ## Overview
 
-This plugin allows you to run browser tests by simply describing what you want to test in plain English. It uses a standalone AI agent loop combined with Playwright MCP to:
+This plugin is not just a test generator—it is a **Context-Aware QA Engineer**. It allows you to run browser tests by describing them in plain English, but unlike standard tools, it **automatically refactors the output to match your project's existing structure**.
 
-1. Parse your test instructions into executable steps
-2. Drive a browser using AI + Playwright
-3. Generate reusable Playwright test scripts
-4. Output structured JSON results
+If you use a **Page Object Model (POM)**, this plugin will detect it, respect it, and write code that uses it.
+
+## Key Features
+
+1.  **Natural Language Testing**: "Login as admin and check the dashboard."
+2.  **Self-Healing Execution**: Uses an AI Agent Loop to drive the browser, handling errors (like "element not found") in real-time.
+3.  **Project-Aware Generation**: Automatically scans your codebase for existing Page Objects and uses them instead of raw selectors.
+4.  **Zero-Config Context**: No manual context setup required. It indexes your project structure on the fly.
 
 ## Installation
 
@@ -37,17 +41,12 @@ You need a **Gemini API Key** to power the AI agent.
 export GEMINI_API_KEY=your_api_key_here
 ```
 
-### Basic Usage
+### Run a Test
+
+Simply run the command in your project root:
 
 ```bash
-# Run with bun (development)
-bun run dev "Navigate to example.com and verify the heading says 'Example Domain'"
-
-# After building
-./dist/bin/qa-test.js "Test instruction here"
-
-# After npm link
-qa-test "Test instruction here"
+qa-test "Login to the application with user 'admin' and password '1234'"
 ```
 
 ### CLI Options
@@ -63,73 +62,62 @@ Options:
   -h, --help           Show help
 ```
 
-## How It Works: The Standalone Agentic Loop
+## How It Works: The Unified Workflow
 
-This tool operates through an internal "Agentic Loop":
+When you run a command, the plugin executes a sophisticated 4-stage pipeline:
 
-### 1. The Architect (System Persona)
-*   Defines the "QA Engineer" persona and strict fallback strategies (e.g., trying Role > Label > Text).
-*   Orchestrates the session and manages inputs.
+### Stage 1: The Agent Loop (Execution)
+The plugin launches a **Gemini AI Agent** connected to a real browser (via Playwright).
+*   It interprets your instruction ("Login").
+*   It executes actions on the browser.
+*   **Self-Correction**: If a selector fails, the agent sees the error, inspects the page, and tries a different approach immediately.
 
-### 2. The Agent Loop (The Intelligence & Dispatcher)
-*   **Gemini AI**: Powers the reasoning engine that decides which actions to take.
-*   **Automatic Feedback Loop**: When a browser action fails (e.g., "element not found"), the plugin automatically feeds that error back to the AI. This allows the AI to immediately rethink its next move based on real-time browser state.
-*   **Tool Gateway**: Directly communicates with **Playwright MCP** via JSON-RPC to execute browser commands.
+### Stage 2: Codebase Context Scan (Indexing)
+Once the test is successful, the plugin prepares to save the code. Before writing a single line, it **scans your current working directory**.
+*   It looks for TypeScript files that appear to be **Page Objects** (e.g., `LoginPage.ts`).
+*   It builds a lightweight "Selector Map" of your project (e.g., "The selector `#username` belongs to `LoginPage`").
 
-### 3. Verification & Script Composition
-*   After every action, the AI verifies the result before moving to the next step.
-*   Once finished, it compiles successful actions into a clean, production-ready Playwright script.
+### Stage 3: Smart Refactoring (Synthesis)
+The plugin takes the *raw* actions performed in Stage 1 and passes them through a **Refactor Engine**.
+*   **Input**: `await page.fill('#username', 'admin')`
+*   **Context Match**: "Wait, `#username` is managed by `LoginPage.ts`."
+*   **Transformation**: The code is rewritten to instantiate and use your Page Object.
 
-## Generated Scripts
-
-The plugin generates production-ready Playwright test code:
-
+**Resulting Code:**
 ```typescript
 import { test, expect } from '@playwright/test';
+import { LoginPage } from './pages/LoginPage'; // Automatically imported
 
-test('QA Test: Login flow', async ({ page }) => {
-  await page.goto('https://example.com/login');
-  await page.getByLabel('Email').fill('test@example.com');
-  await page.getByRole('button', { name: 'Submit' }).click();
-  await expect(page.getByText('Welcome')).toBeVisible();
+test('Login Test', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.navigate();
+  await loginPage.login('admin', '1234'); // Uses YOUR existing method
 });
 ```
 
-You can run generated scripts with:
-
-```bash
-npx playwright test /path/to/generated.spec.ts
-```
+### Stage 4: Artifact Generation
+Finally, the clean, project-aligned code is saved to your disk, ready to be committed to your repository.
 
 ## Architecture
 
 ```text
-         [ 1. Input ]
-              │
-    ┌─────────▼────────────────────────┐
-    │     CLI (qa-test)                │
-    └─────────┬────────────────────────┘
-              │ 2. Setup & Rules
-    ┌─────────▼────────────────────────┐
-    │   QA Playwright Plugin           │
-    │   (System Persona & Strategy)    │
-    └─────────┬────────────────────────┘
-              │ 3. Agent Loop (Gemini)
-    ┌─────────▼────────────────────────┐        ┌──────────────────┐
-    │      Internal Dispatcher         │◄───────┤ Feedack Loop     │
-    │   (Intelligence & Tool Calls)    │        │ (Errors/Results) │
-    └─────────┬────────────────────────┘        └────────▲─────────┘
-              │ 4. Tool Execution                        │
-    ┌─────────▼────────────────────────┐        ┌────────┴─────────┐
-    │      Playwright MCP              ├────────►  Test Reports    │
-    │    (Browser Automation)          │        │     (JSON)       │
-    └─────────┬───────────▲────────────┘        └──────────────────┘
-              │           │                              │
-              │ Actions   │ Selectors                    │ 5. Save
-    ┌─────────▼───────────┴────────────┐        ┌────────┴─────────┐
-    │       Real Browser               │        │  Local Artifacts │
-    │   (Chrome/Firefox/Webkit)        │        │ (.spec.ts files) │
-    └──────────────────────────────────┘        └──────────────────┘
+         [ User Instruction ]
+                  │
+        ┌─────────▼──────────┐
+        │   QA Agent Loop    │  <-- 1. Drives Browser & Verifies Logic
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │   Context Scanner  │  <-- 2. Indexes YOUR Page Objects
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │   Refactor Engine  │  <-- 3. Rewrites Code to match Project Style
+        └─────────┬──────────┘
+                  │
+        ┌─────────▼──────────┐
+        │   Final .spec.ts   │  <-- 4. Saves Clean Code
+        └────────────────────┘
 ```
 
 ## License

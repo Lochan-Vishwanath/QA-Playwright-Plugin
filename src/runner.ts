@@ -7,9 +7,14 @@ import {
     createSuccessResult,
     createFailureResult,
     parseAgentOutput,
+    extractCodeBlock,
 } from "./output";
 import * as fs from "fs";
 import * as path from "path";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { POMIndexer } from "./features/smart-refactor/indexer";
+import { ContextMatcher } from "./features/smart-refactor/matcher";
+import { generateRefactorPrompt } from "./features/smart-refactor/prompt";
 
 const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes default
 
@@ -68,8 +73,62 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
 
         // Save script if content was generated
         if (parsed.scriptContent) {
+            let contentToSave = parsed.scriptContent;
+            
+            // --- SMART REFACTOR ---
+            try {
+                if (verbose) console.error("[Smart Refactor] Scanning for relevant Page Objects...");
+                
+                // 1. Index the project (current working directory)
+                const indexer = new POMIndexer();
+                const index = await indexer.index(process.cwd());
+                
+                // 2. Match the generated code to the index
+                const matcher = new ContextMatcher();
+                const context = matcher.match(contentToSave, index);
+                
+                if (context.relevantPages.length > 0) {
+                    if (verbose) {
+                        console.error(`[Smart Refactor] Found ${context.relevantPages.length} relevant Page Objects.`);
+                        context.relevantPages.forEach(p => console.error(`  - ${p.className} (${p.filePath})`));
+                    }
+                    
+                    // 3. Generate the Refactor Prompt
+                    const refactorPrompt = generateRefactorPrompt(contentToSave, context);
+                    
+                    // 4. Ask Gemini to refactor
+                    if (process.env.GEMINI_API_KEY) {
+                        if (verbose) console.error("[Smart Refactor] Refactoring code with AI...");
+                        
+                        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+                        // Use a fast model for this single-shot task
+                        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+                        
+                        const result = await model.generateContent(refactorPrompt);
+                        const response = result.response;
+                        const refactoredText = response.text();
+                        
+                        // Extract the code from the response
+                        const refactoredCode = extractCodeBlock(refactoredText);
+                        
+                        if (refactoredCode && refactoredCode.length > 50) {
+                            contentToSave = refactoredCode;
+                            if (verbose) console.error("[Smart Refactor] ✅ Code refactored successfully.");
+                        } else {
+                            if (verbose) console.error("[Smart Refactor] ⚠️  Refactoring returned empty or invalid code. Using original.");
+                        }
+                    }
+                } else {
+                    if (verbose) console.error("[Smart Refactor] No relevant Page Objects found. Skipping refactor.");
+                }
+            } catch (err) {
+                console.error("[Smart Refactor] ❌ Failed:", err);
+                // Fallback to original content
+            }
+            // ----------------------
+
             const finalScriptPath = parsed.scriptPath || scriptPath;
-            fs.writeFileSync(finalScriptPath, parsed.scriptContent, "utf-8");
+            fs.writeFileSync(finalScriptPath, contentToSave, "utf-8");
             parsed.scriptPath = finalScriptPath;
         }
 

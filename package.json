@@ -20,7 +20,9 @@
         "@google/generative-ai": "^0.21.0",
         "@modelcontextprotocol/sdk": "^1.0.4",
         "dotenv": "^16.4.7",
-        "picocolors": "^1.0.0"
+        "glob": "^13.0.0",
+        "picocolors": "^1.0.0",
+        "ts-morph": "^27.0.2"
     },
     "devDependencies": {
         "bun-types": "latest",

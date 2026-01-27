@@ -38,6 +38,16 @@ export function createFailureResult(
 }
 
 /**
+ * Extract code from markdown block
+ */
+export function extractCodeBlock(text: string): string {
+    return text
+        .replace(/^```[a-z]*\n?/m, "")
+        .replace(/^```\s*$/m, "")
+        .trim();
+}
+
+/**
  * Parse the agent's output to extract result information
  */
 export function parseAgentOutput(output: string): {
@@ -71,11 +81,7 @@ export function parseAgentOutput(output: string): {
     );
     if (scriptMatch) {
         let content = scriptMatch[1].trim();
-        // Clean up markdown code blocks if present
-        content = content
-            .replace(/^```typescript\n?/m, "")
-            .replace(/^```\s*$/m, "")
-            .trim();
+        content = extractCodeBlock(content);
         // Only set if it's not a placeholder
         if (content && !content.includes("[full script content]") && content.length > 50) {
             result.scriptContent = content;
