@@ -11,6 +11,40 @@ This plugin allows you to run browser tests by simply describing what you want t
 3. Generate reusable Playwright test scripts
 4. Output structured JSON results
 
+## Prerequisites
+
+### Install Bun
+
+#### macOS / Linux
+```bash
+# Install Bun (recommended)
+curl -fsSL https://bun.sh/install | bash
+
+# Restart your terminal or run:
+source ~/.bashrc
+```
+
+#### Windows (PowerShell)
+```powershell
+# Install Bun using PowerShell
+irm bun.sh/install.ps1 | iex
+
+# Restart PowerShell after installation
+```
+
+#### Alternative: Install via npm/yarn
+```bash
+# If you have npm/yarn already
+npm install -g bun
+# or
+yarn global add bun
+```
+
+**Verify installation:**
+```bash
+bun --version
+```
+
 ## Installation
 
 ```bash
@@ -29,13 +63,34 @@ npm link
 
 ## Usage
 
-### Prerequisites
+### Get Gemini API Key
 
-You need a **Gemini API Key** to power the AI agent.
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy the generated API key
 
+### Set API Key
+
+#### Option 1: Environment Variable (temporary)
 ```bash
-export GEMINI_API_KEY=your_api_key_here
+# macOS/Linux
+export GEMINI_API_KEY="your_api_key_here"
+
+# Windows (PowerShell)
+$env:GEMINI_API_KEY="your_api_key_here"
+
+# Windows (Command Prompt)
+set GEMINI_API_KEY=your_api_key_here
 ```
+
+#### Option 2: .env File (recommended)
+Create a `.env` file in the project root:
+```bash
+GEMINI_API_KEY=your_api_key_here
+```
+
+The `.env` file will be automatically loaded when running the tool.
 
 ### Basic Usage
 
