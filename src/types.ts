@@ -20,10 +20,19 @@ export interface CLIOptions {
 }
 
 /**
+ * Log event for structured output
+ */
+export interface LogEvent {
+    type: "prompt" | "output" | "tools";
+    content?: string;
+    tools?: any[];
+}
+
+/**
  * Log callback for verbose output
  */
 export interface LogCallback {
-    (type: "prompt" | "output", content: string): void;
+    (event: LogEvent): void;
 }
 
 /**

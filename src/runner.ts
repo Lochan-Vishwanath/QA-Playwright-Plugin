@@ -38,11 +38,13 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
         fs.mkdirSync(testDir, { recursive: true });
     }
 
-    const logCallback: LogCallback | undefined = verbose ? (type, content) => {
-        if (type === "prompt") {
-            console.error(`[prompt] ${content}`);
-        } else if (type === "output") {
-            console.error(`[output] ${content}`);
+    const logCallback: LogCallback | undefined = verbose ? (event) => {
+        if (event.type === "prompt") {
+            console.error(`[prompt] ${event.content}`);
+        } else if (event.type === "output") {
+            console.error(`[output] ${event.content}`);
+        } else if (event.type === "tools") {
+            console.error(`[tools] Available: ${event.tools?.map(t => t.name).join(", ")}`);
         }
     } : undefined;
 
@@ -59,7 +61,7 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
         const prompt = generateQAPrompt(instruction, testDir, baseUrl);
 
         if (logCallback) {
-            logCallback("prompt", prompt);
+            logCallback({ type: "prompt", content: prompt });
         }
 
         // Run the agent loop
@@ -74,43 +76,43 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
         // Save script if content was generated
         if (parsed.scriptContent) {
             let contentToSave = parsed.scriptContent;
-            
+
             // --- SMART REFACTOR ---
             try {
                 if (verbose) console.error("[Smart Refactor] Scanning for relevant Page Objects...");
-                
+
                 // 1. Index the project (current working directory)
                 const indexer = new POMIndexer();
                 const index = await indexer.index(process.cwd());
-                
+
                 // 2. Match the generated code to the index
                 const matcher = new ContextMatcher();
                 const context = matcher.match(contentToSave, index);
-                
+
                 if (context.relevantPages.length > 0) {
                     if (verbose) {
                         console.error(`[Smart Refactor] Found ${context.relevantPages.length} relevant Page Objects.`);
                         context.relevantPages.forEach(p => console.error(`  - ${p.className} (${p.filePath})`));
                     }
-                    
+
                     // 3. Generate the Refactor Prompt
                     const refactorPrompt = generateRefactorPrompt(contentToSave, context);
-                    
+
                     // 4. Ask Gemini to refactor
                     if (process.env.GEMINI_API_KEY) {
                         if (verbose) console.error("[Smart Refactor] Refactoring code with AI...");
-                        
+
                         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
                         // Use a fast model for this single-shot task
                         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-                        
+
                         const result = await model.generateContent(refactorPrompt);
                         const response = result.response;
                         const refactoredText = response.text();
-                        
+
                         // Extract the code from the response
                         const refactoredCode = extractCodeBlock(refactoredText);
-                        
+
                         if (refactoredCode && refactoredCode.length > 50) {
                             contentToSave = refactoredCode;
                             if (verbose) console.error("[Smart Refactor] ✅ Code refactored successfully.");

@@ -2,6 +2,9 @@ import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { McpRunner } from "./mcp-runner";
 import type { LogCallback } from "./types";
 import * as dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -36,7 +39,17 @@ export class AgentLoop {
     constructor(mcp: McpRunner, logCallback?: LogCallback) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            throw new Error("GEMINI_API_KEY environment variable is not set");
+            // For debugging: show where we looked
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname = path.dirname(__filename);
+            const searchPaths = [
+                path.join(__dirname, ".env"),
+                path.join(__dirname, "..", ".env"),
+                path.join(__dirname, "..", "..", ".env"),
+                path.join(__dirname, "..", "..", "..", ".env")
+            ];
+            const existence = searchPaths.map(p => `${p}: ${fs.existsSync(p)}`).join("\n");
+            throw new Error(`GEMINI_API_KEY environment variable is not set.\nPaths checked:\n${existence}\nCWD: ${process.cwd()}`);
         }
 
         this.genAI = new GoogleGenerativeAI(apiKey);
@@ -57,7 +70,7 @@ export class AgentLoop {
         }));
 
         if (this.logCallback) {
-            this.logCallback("output", `Available tools: ${tools.map(t => t.name).join(", ")}`);
+            this.logCallback({ type: "tools", tools });
         }
 
         // Initialize chat session
@@ -80,7 +93,7 @@ export class AgentLoop {
             iteration++;
 
             if (this.logCallback) {
-                this.logCallback("output", `Iteration ${iteration}...`);
+                this.logCallback({ type: "output", content: `Iteration ${iteration}...` });
             }
 
             try {
@@ -95,12 +108,15 @@ export class AgentLoop {
                     if (candidate) {
                         const hasTools = toolCalls && toolCalls.length > 0;
                         const textLen = responseText ? responseText.length : 0;
-                        this.logCallback("output", `Model Response (Turn ${iteration}): ${hasTools ? '[Has Tool Calls]' : '[No Tool Calls]'} ${textLen > 0 ? `Text: ${responseText.substring(0, 50).replace(/\n/g, ' ')}...` : '[No Text]'}`);
+                        this.logCallback({
+                            type: "output",
+                            content: `Model Response (Turn ${iteration}): ${hasTools ? '[Has Tool Calls]' : '[No Tool Calls]'} ${textLen > 0 ? `Text: ${responseText.substring(0, 50).replace(/\n/g, ' ')}...` : '[No Text]'}`
+                        });
                     }
                 }
 
                 if (this.logCallback && responseText) {
-                    this.logCallback("output", responseText);
+                    this.logCallback({ type: "output", content: responseText });
                 }
 
                 if (!toolCalls || toolCalls.length === 0) {
@@ -124,7 +140,7 @@ export class AgentLoop {
                 const toolResultsParts: any[] = [];
                 for (const toolCall of toolCalls) {
                     if (this.logCallback) {
-                        this.logCallback("output", `[TOOL CALL] ${toolCall.name}(${JSON.stringify(toolCall.args)})`);
+                        this.logCallback({ type: "output", content: `[TOOL CALL] ${toolCall.name}(${JSON.stringify(toolCall.args)})` });
                     }
 
                     const toolResult = await this.mcp.callTool(toolCall.name, toolCall.args);
@@ -134,7 +150,7 @@ export class AgentLoop {
                             .filter((c: any) => c.type === "text")
                             .map((c: any) => c.text)
                             .join("\n");
-                        this.logCallback("output", `[TOOL RESULT] ${resultText.substring(0, 200)}${resultText.length > 200 ? '...' : ''}`);
+                        this.logCallback({ type: "output", content: `[TOOL RESULT] ${resultText.substring(0, 200)}${resultText.length > 200 ? '...' : ''}` });
                     }
 
                     toolResultsParts.push({
@@ -149,7 +165,7 @@ export class AgentLoop {
                 currentParts = toolResultsParts;
             } catch (error) {
                 if (this.logCallback) {
-                    this.logCallback("output", `[ERROR in Loop]: ${error instanceof Error ? error.message : String(error)}`);
+                    this.logCallback({ type: "output", content: `[ERROR in Loop]: ${error instanceof Error ? error.message : String(error)}` });
                 }
                 throw error;
             }
