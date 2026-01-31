@@ -6,10 +6,12 @@
  *   npx qa-playwright "Test instruction"
  *   npx qa-playwright "Navigate to /login and verify form appears" --output ~/results
  *   npx qa-playwright "Test checkout flow" --base-url https://staging.myapp.com
+ *   npx qa-playwright "Login and toggle theme" --refactor --repo ~/my-playwright-repo
  */
 
 import { runQATest } from "../src/runner";
 import { formatOutput, createFailureResult } from "../src/output";
+import { runRefactoringAgent } from "../src/refactor/refactor-agent";
 import * as path from "path";
 import * as os from "os";
 
@@ -21,6 +23,9 @@ function parseArgs(args: string[]): {
     timeout?: number;
     verbose: boolean;
     help: boolean;
+    refactor: boolean;
+    repoPath?: string;
+    dryRun: boolean;
 } {
     const result = {
         instruction: "",
@@ -29,6 +34,9 @@ function parseArgs(args: string[]): {
         timeout: 300000, // 5 minutes default
         verbose: false,
         help: false,
+        refactor: false,
+        repoPath: undefined as string | undefined,
+        dryRun: false,
     };
 
     let i = 0;
@@ -46,6 +54,12 @@ function parseArgs(args: string[]): {
             result.timeout = parseInt(args[++i], 10) || result.timeout;
         } else if (arg === "--log" || arg === "-l") {
             result.verbose = true;
+        } else if (arg === "--refactor" || arg === "-r") {
+            result.refactor = true;
+        } else if (arg === "--repo") {
+            result.repoPath = args[++i];
+        } else if (arg === "--dry-run") {
+            result.dryRun = true;
         } else if (!arg.startsWith("-") && !result.instruction) {
             result.instruction = arg;
         }
@@ -58,11 +72,12 @@ function parseArgs(args: string[]): {
 
 function showHelp(): void {
     console.log(`
-QA Playwright Plugin - AI-powered browser testing
+QA Playwright Plugin - AI-powered browser testing with E2E refactoring
 
 USAGE:
   qa-test "<instruction>"
   qa-test "<instruction>" --output <dir> --base-url <url>
+  qa-test "<instruction>" --refactor --repo <path>
 
 ARGUMENTS:
   <instruction>    Test instruction in natural language
@@ -75,25 +90,46 @@ OPTIONS:
   -l, --log        Enable verbose logging of agent progress to stderr
   -h, --help       Show this help message
 
+REFACTORING OPTIONS:
+  -r, --refactor   Enable E2E refactoring mode (integrates code into target repo)
+  --repo <path>    Path to target Playwright repository (required with --refactor)
+  --dry-run        Analyze without making changes (for refactor mode)
+
 EXAMPLES:
+  # Basic usage - generate raw Playwright code
   qa-test "Go to example.com and verify the heading says 'Example Domain'"
   
+  # With base URL
   qa-test "Test login: navigate to /login, enter test@email.com, click submit" \\
     --base-url https://staging.myapp.com \\
     --output ~/test-results
+
+  # E2E Refactoring mode - generate and integrate into existing repo
+  qa-test "Login and toggle dark mode" --refactor --repo ~/my-playwright-tests
+
+  # Dry run to preview changes
+  qa-test "Test checkout flow" --refactor --repo ~/e2e-tests --dry-run
 
 OUTPUT:
   JSON result printed to stdout:
   {
     "instructions_completed": "yes" | "no",
     "link_to_playwrightscript": "/path/to/generated.spec.ts",
-    "link_to_video": "/path/to/recording.webm",
     "error": ["...", "..."]  // Only if failed
   }
 
+REFACTOR OUTPUT (when --refactor is used):
+  {
+    "success": true | false,
+    "rawScriptPath": "/path/to/raw.spec.ts",
+    "generatedTestPath": "/path/to/repo/tests/test.spec.ts",
+    "modifiedFiles": ["pages/layoutPage.ts", ...],
+    "errors": [...]
+  }
+
 REQUIREMENTS:
-  - OpenCode must be installed and configured
-  - Playwright MCP with recording: npx @playwright/record-mcp@latest --record
+  - GEMINI_API_KEY environment variable set
+  - Playwright MCP: npx @playwright/mcp@latest
 `);
 }
 
@@ -117,20 +153,56 @@ async function main(): Promise<void> {
         // Resolve output directory to absolute path
         const outputDir = path.resolve(parsed.outputDir);
 
-        // Run the QA test
-        const result = await runQATest({
-            instruction: parsed.instruction,
-            outputDir,
-            baseUrl: parsed.baseUrl,
-            timeout: parsed.timeout,
-            verbose: parsed.verbose,
-        });
+        // Check if refactoring mode
+        if (parsed.refactor) {
+            if (!parsed.repoPath) {
+                console.error("Error: --repo <path> is required when using --refactor mode.\n");
+                showHelp();
+                process.exit(1);
+            }
 
-        // Output JSON to stdout
-        console.log(formatOutput(result));
+            const repoPath = path.resolve(parsed.repoPath);
 
-        // Exit with appropriate code
-        process.exit(result.instructions_completed === "yes" ? 0 : 1);
+            // Run the refactoring agent
+            const result = await runRefactoringAgent({
+                instruction: parsed.instruction,
+                outputDir,
+                repoPath,
+                baseUrl: parsed.baseUrl,
+                timeout: parsed.timeout,
+                verbose: parsed.verbose,
+                dryRun: parsed.dryRun,
+            }, parsed.verbose ? (type, content) => {
+                console.error(`[${type}] ${content}`);
+            } : undefined);
+
+            // Output JSON to stdout
+            console.log(JSON.stringify({
+                success: result.success,
+                rawScriptPath: result.rawScriptPath,
+                generatedTestPath: result.generatedTestPath,
+                modifiedFiles: result.modifiedFiles,
+                errors: result.errors,
+            }, null, 2));
+
+            // Exit with appropriate code
+            process.exit(result.success ? 0 : 1);
+        } else {
+            // Standard mode - just generate raw code
+            const result = await runQATest({
+                instruction: parsed.instruction,
+                outputDir,
+                baseUrl: parsed.baseUrl,
+                timeout: parsed.timeout,
+                verbose: parsed.verbose,
+            });
+
+            // Output JSON to stdout
+            console.log(formatOutput(result));
+
+            // Exit with appropriate code
+            process.exit(result.instructions_completed === "yes" ? 0 : 1);
+        }
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         const result = createFailureResult([`Fatal error: ${errorMessage}`]);
@@ -140,3 +212,4 @@ async function main(): Promise<void> {
 }
 
 main();
+
