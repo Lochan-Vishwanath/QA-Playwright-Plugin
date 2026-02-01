@@ -179,12 +179,3 @@ Begin by parsing the instruction into steps, then execute each step with verific
 `;
 }
 
-/**
- * Agent configuration for opencode
- */
-export const QA_AGENT_CONFIG = {
-   name: "qa-engineer",
-   description: "AI-powered QA testing agent",
-   model: "anthropic/claude-sonnet-4-5", // Good balance of capability and speed
-   temperature: 0.1, // Low temperature for deterministic behavior
-};

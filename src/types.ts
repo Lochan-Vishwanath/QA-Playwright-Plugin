@@ -14,6 +14,7 @@ export interface QATestResult {
 export interface CLIOptions {
     instruction: string;
     outputDir: string;
+    targetRepoPath?: string;
     baseUrl?: string;
     timeout?: number;
     verbose?: boolean;

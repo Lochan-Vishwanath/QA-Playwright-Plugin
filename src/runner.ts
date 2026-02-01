@@ -75,6 +75,31 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
 
         // Use the testStatus extracted from the agent's output (passed/failed)
         if (parsed.testStatus === "passed") {
+            // If targetRepoPath is provided, perform smart refactor and integration
+            if (options.targetRepoPath && parsed.scriptContent) {
+                if (logCallback) {
+                    logCallback("output", `Starting Smart Refactor and Integration into ${options.targetRepoPath}...`);
+                }
+                const { refactorAndIntegrate } = await import("./refactor-agent");
+                try {
+                    await refactorAndIntegrate({
+                        rawScript: parsed.scriptContent,
+                        targetRepoPath: options.targetRepoPath,
+                        outputDir: testDir,
+                        verbose: options.verbose
+                    });
+                    if (logCallback) {
+                        logCallback("output", "Smart Refactor and Integration completed successfully.");
+                    }
+                } catch (refactorErr) {
+                    if (logCallback) {
+                        logCallback("output", `Smart Refactor failed: ${refactorErr instanceof Error ? refactorErr.message : String(refactorErr)}`);
+                    }
+                    // We don't fail the whole test if refactoring fails, but we could add it to errors
+                    parsed.errors.push(`Smart Refactor Error: ${refactorErr instanceof Error ? refactorErr.message : String(refactorErr)}`);
+                }
+            }
+
             return createSuccessResult(
                 parsed.scriptPath || scriptPath,
                 "passed"

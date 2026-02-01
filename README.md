@@ -9,7 +9,8 @@ This plugin allows you to run browser tests by simply describing what you want t
 1. Parse your test instructions into executable steps
 2. Drive a browser using AI + Playwright
 3. Generate reusable Playwright test scripts
-4. Output structured JSON results
+4. **Smart Refactor**: Automatically refactor and integrate generated tests into an existing repository's Page Object Model (POM)
+5. Output structured JSON results
 
 ## Prerequisites
 
@@ -111,11 +112,12 @@ qa-test "Test instruction here"
 qa-test "<instruction>" [options]
 
 Options:
-  -o, --output <dir>   Output directory for artifacts (default: ~/qa-playwright-results)
-  -b, --base-url <url> Base URL for relative paths
-  -t, --timeout <ms>   Timeout in milliseconds (default: 300000)
-  -l, --log            Enable verbose logging of agent progress to stderr
-  -h, --help           Show help
+  -o, --output <dir>    Output directory for artifacts (default: ~/qa-playwright-results)
+  -b, --base-url <url>  Base URL for relative paths
+  -r, --target-repo <path> Path to existing repository for Smart Refactor and Integration
+  -t, --timeout <ms>    Timeout in milliseconds (default: 300000)
+  -l, --log             Enable verbose logging of agent progress to stderr
+  -h, --help            Show help
 ```
 
 ## How It Works: The Standalone Agentic Loop
@@ -134,6 +136,12 @@ This tool operates through an internal "Agentic Loop":
 ### 3. Verification & Script Composition
 *   After every action, the AI verifies the result before moving to the next step.
 *   Once finished, it compiles successful actions into a clean, production-ready Playwright script.
+
+### 4. Smart Refactor & Integration (Optional)
+*   If a `--target-repo` is provided, a second agent is spawned to:
+    *   Explore your repository's structure (Page Objects, tests, fixtures).
+    *   Refactor the "raw" generated script into your project's coding style and POM.
+    *   Integrate the new test case and any required Page Object updates directly into your codebase.
 
 ## Generated Scripts
 

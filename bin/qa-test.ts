@@ -18,6 +18,7 @@ function parseArgs(args: string[]): {
     instruction: string;
     outputDir: string;
     baseUrl?: string;
+    targetRepoPath?: string;
     timeout?: number;
     verbose: boolean;
     help: boolean;
@@ -26,6 +27,7 @@ function parseArgs(args: string[]): {
         instruction: "",
         outputDir: path.join(os.homedir(), "qa-playwright-results"),
         baseUrl: undefined as string | undefined,
+        targetRepoPath: undefined as string | undefined,
         timeout: 300000, // 5 minutes default
         verbose: false,
         help: false,
@@ -42,6 +44,8 @@ function parseArgs(args: string[]): {
             result.outputDir = args[++i] || result.outputDir;
         } else if (arg === "--base-url" || arg === "-b") {
             result.baseUrl = args[++i];
+        } else if (arg === "--target-repo" || arg === "-r") {
+            result.targetRepoPath = args[++i];
         } else if (arg === "--timeout" || arg === "-t") {
             result.timeout = parseInt(args[++i], 10) || result.timeout;
         } else if (arg === "--log" || arg === "-l") {
@@ -71,6 +75,7 @@ ARGUMENTS:
 OPTIONS:
   -o, --output     Output directory for artifacts (default: ~/qa-playwright-results)
   -b, --base-url   Base URL for relative paths
+  -r, --target-repo Path to the target repository for Smart Refactor
   -t, --timeout    Timeout in milliseconds (default: 300000 = 5 minutes)
   -l, --log        Enable verbose logging of agent progress to stderr
   -h, --help       Show this help message
@@ -92,7 +97,6 @@ OUTPUT:
   }
 
 REQUIREMENTS:
-  - OpenCode must be installed and configured
   - Playwright MCP with recording: npx @playwright/record-mcp@latest --record
 `);
 }
@@ -122,6 +126,7 @@ async function main(): Promise<void> {
             instruction: parsed.instruction,
             outputDir,
             baseUrl: parsed.baseUrl,
+            targetRepoPath: parsed.targetRepoPath,
             timeout: parsed.timeout,
             verbose: parsed.verbose,
         });

@@ -10,5 +10,6 @@
 
 export { runQATest, run } from "./runner";
 export { generateQAPrompt, QA_ENGINEER_SYSTEM_PROMPT, QA_AGENT_CONFIG } from "./agent";
+export { refactorAndIntegrate } from "./refactor-agent";
 export { formatOutput, createSuccessResult, createFailureResult } from "./output";
 export type { QATestResult, CLIOptions, TestStep, TestContext } from "./types";
