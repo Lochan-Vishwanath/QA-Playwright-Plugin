@@ -128,16 +128,20 @@ This tool operates through an internal "Agentic Loop":
 *   Defines the "QA Engineer" persona and strict fallback strategies (e.g., trying Role > Label > Text).
 *   Orchestrates the session and manages inputs.
 
-### 2. The Agent Loop (The Intelligence & Dispatcher)
+### 2. Local File Path Resolution
+*   **Automatic Context Injection**: The runner automatically detects absolute file paths in your natural language instructions.
+*   **Data Security/Ease**: It reads the contents of those files (e.g., `login.txt` with credentials) and injects them into the prompt environment, so the AI has the values without you needing to paste sensitive data into the command line.
+
+### 3. The Agent Loop (The Intelligence & Dispatcher)
 *   **Gemini AI**: Powers the reasoning engine that decides which actions to take.
 *   **Automatic Feedback Loop**: When a browser action fails (e.g., "element not found"), the plugin automatically feeds that error back to the AI. This allows the AI to immediately rethink its next move based on real-time browser state.
 *   **Tool Gateway**: Directly communicates with **Playwright MCP** via JSON-RPC to execute browser commands.
 
-### 3. Verification & Script Composition
+### 4. Verification & Script Composition
 *   After every action, the AI verifies the result before moving to the next step.
 *   Once finished, it compiles successful actions into a clean, production-ready Playwright script.
 
-### 4. Smart Refactor & Integration (Optional)
+### 5. Smart Refactor & Integration (Optional)
 *   If a `--target-repo` is provided, a second agent is spawned to:
     *   Explore your repository's structure (Page Objects, tests, fixtures).
     *   Refactor the "raw" generated script into your project's coding style and POM.
@@ -166,20 +170,22 @@ npx playwright test /path/to/generated.spec.ts
 
 ## Architecture
 
+### ASCII Overview
+
 ```text
          [ 1. Input ]
               │
     ┌─────────▼────────────────────────┐
     │     CLI (qa-test)                │
     └─────────┬────────────────────────┘
-              │ 2. Setup & Rules
+              │ 2. Setup & Context
     ┌─────────▼────────────────────────┐
     │   QA Playwright Plugin           │
-    │   (System Persona & Strategy)    │
+    │   (Strategy & File Resolver)     │
     └─────────┬────────────────────────┘
               │ 3. Agent Loop (Gemini)
     ┌─────────▼────────────────────────┐        ┌──────────────────┐
-    │      Internal Dispatcher         │◄───────┤ Feedack Loop     │
+    │      Internal Dispatcher         │◄───────┤ Feedback Loop    │
     │   (Intelligence & Tool Calls)    │        │ (Errors/Results) │
     └─────────┬────────────────────────┘        └────────▲─────────┘
               │ 4. Tool Execution                        │
@@ -193,6 +199,39 @@ npx playwright test /path/to/generated.spec.ts
     │       Real Browser               │        │  Local Artifacts │
     │   (Chrome/Firefox/Webkit)        │        │ (.spec.ts files) │
     └──────────────────────────────────┘        └──────────────────┘
+              │                                          │
+              │ (Optional Integration)                   ▼
+    ┌─────────▼──────────────────────────────────────────────┐
+    │      Smart Refactor Agent (Target Repo Integration)     │
+    └────────────────────────────────────────────────────────┘
+```
+
+### Flow Diagram (Mermaid)
+
+```mermaid
+graph TD
+    User([User Instruction]) --> CLI[qa-test CLI]
+    CLI --> Runner[Runner]
+    
+    subgraph "QA Playwright Plugin"
+        Runner --> FileResolve[File Path Resolver]
+        Runner --> PromptGen[Prompt Generator]
+        Runner --> AgentLoop[Agent Loop]
+        
+        AgentLoop <--> Gemini[Gemini AI]
+        AgentLoop <--> MCP[MCP Runner]
+    end
+    
+    MCP <--> PlaywrightMCP[Playwright MCP Server]
+    PlaywrightMCP <--> Browser[Real Browser]
+    
+    AgentLoop --> ScriptGen[Script Generator]
+    ScriptGen --> Output[Local Artifacts .spec.ts]
+    
+    Runner -.-> RefactorAgent[Smart Refactor Agent]
+    RefactorAgent -.-> TargetRepo[(Target Repository)]
+    TargetRepo -.-> RefactorAgent
+    RefactorAgent -.-> Output
 ```
 
 ## License
