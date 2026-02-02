@@ -74,9 +74,9 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
         }
 
         // Use the testStatus extracted from the agent's output (passed/failed)
-        if (parsed.testStatus === "passed") {
+        if (parsed.testStatus === "passed" && parsed.scriptContent) {
             // If targetRepoPath is provided, perform smart refactor and integration
-            if (options.targetRepoPath && parsed.scriptContent) {
+            if (options.targetRepoPath) {
                 if (logCallback) {
                     logCallback("output", `Starting Smart Refactor and Integration into ${options.targetRepoPath}...`);
                 }
@@ -105,10 +105,15 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
                 "passed"
             );
         } else {
+            // If the agent finished its run but verification failed, we set instructions_completed: "yes"
+            // if we have script content, otherwise "no".
+            const instructionsCompleted = parsed.scriptContent.length > 0 ? "yes" : "no";
+
             return createFailureResult(
-                parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully"],
+                parsed.errors.length > 0 ? parsed.errors : ["Test execution did not complete successfully or verification failed"],
                 parsed.scriptPath || scriptPath,
-                "failed"
+                "failed",
+                instructionsCompleted
             );
         }
 

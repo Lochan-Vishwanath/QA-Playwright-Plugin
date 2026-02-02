@@ -9,13 +9,15 @@ export function formatOutput(result: QATestResult): string {
 
 /**
  * Create a success result
+ * instructions_completed is usually "yes" here as the agent reached its goal.
  */
 export function createSuccessResult(
     scriptPath: string,
-    testStatus: "passed" | "failed" = "passed"
+    testStatus: "passed" | "failed" = "passed",
+    instructionsCompleted: "yes" | "no" = "yes"
 ): QATestResult {
     return {
-        instructions_completed: "yes",
+        instructions_completed: instructionsCompleted,
         test_status: testStatus,
         link_to_playwrightscript: scriptPath,
     };
@@ -23,14 +25,17 @@ export function createSuccessResult(
 
 /**
  * Create a failure result
+ * instructions_completed is "no" if the agent couldn't even finish its steps (e.g. net error)
+ * instructions_completed is "yes" if the agent finished steps but the test logic failed.
  */
 export function createFailureResult(
     errors: string[],
     scriptPath: string = "",
-    testStatus: "passed" | "failed" = "failed"
+    testStatus: "passed" | "failed" = "failed",
+    instructionsCompleted: "yes" | "no" = "no"
 ): QATestResult {
     return {
-        instructions_completed: "no",
+        instructions_completed: instructionsCompleted,
         test_status: testStatus,
         link_to_playwrightscript: scriptPath,
         error: errors,
