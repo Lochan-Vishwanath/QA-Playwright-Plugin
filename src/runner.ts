@@ -14,6 +14,30 @@ import * as path from "path";
 const DEFAULT_TIMEOUT_MS = 300000; // 5 minutes default
 
 /**
+ * Resolve absolute file paths in the instruction and read their content
+ */
+function resolveFilePaths(instruction: string): { resolvedInstruction: string; fileContents: Record<string, string> } {
+    const fileContents: Record<string, string> = {};
+    // Regex for absolute paths (e.g. /Users/...)
+    const pathRegex = /(\/[^\s]+\.[a-zA-Z0-9]+)/g;
+
+    const resolvedInstruction = instruction.replace(pathRegex, (match) => {
+        if (fs.existsSync(match) && fs.statSync(match).isFile()) {
+            try {
+                const content = fs.readFileSync(match, "utf-8");
+                fileContents[match] = content;
+                return `[CONTENT OF ${match}]`;
+            } catch (err) {
+                return match;
+            }
+        }
+        return match;
+    });
+
+    return { resolvedInstruction, fileContents };
+}
+
+/**
  * Run the QA test with given options
  */
 export async function runQATest(options: CLIOptions): Promise<QATestResult> {
@@ -50,8 +74,19 @@ export async function runQATest(options: CLIOptions): Promise<QATestResult> {
         await mcp.connect();
         const agent = new AgentLoop(mcp, logCallback);
 
+        // Resolve local file paths in the instruction (e.g. credentials)
+        const { resolvedInstruction, fileContents } = resolveFilePaths(instruction);
+
+        let finalInstruction = resolvedInstruction;
+        if (Object.keys(fileContents).length > 0) {
+            const dataDump = Object.entries(fileContents)
+                .map(([filePath, content]) => `### Content of ${filePath}:\n${content}`)
+                .join("\n\n");
+            finalInstruction = `${resolvedInstruction}\n\n--- DATA FROM LOCAL FILES ---\n${dataDump}`;
+        }
+
         // Generate the QA prompt
-        const prompt = generateQAPrompt(instruction, testDir, baseUrl);
+        const prompt = generateQAPrompt(finalInstruction, testDir, baseUrl);
 
         if (logCallback) {
             logCallback("prompt", prompt);
