@@ -2,51 +2,407 @@
 
 AI-powered Playwright QA testing from natural language instructions.
 
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Technology Stack](#technology-stack)
+4. [Component Breakdown](#component-breakdown)
+5. [Data Flow](#data-flow)
+6. [How It Works](#how-it-works)
+7. [CLI Options](#cli-options)
+8. [Generated Scripts](#generated-scripts)
+9. [Environment Setup](#environment-setup)
+
+---
+
 ## Overview
 
-This plugin allows you to run browser tests by simply describing what you want to test in plain English. It uses a standalone AI agent loop combined with Playwright MCP to:
+The **QA Playwright Plugin** is an intelligent testing tool that transforms natural language test instructions into executable browser automation tests. It combines:
 
-1. Parse your test instructions into executable steps
-2. Drive a browser using AI + Playwright
-3. Generate reusable Playwright test scripts
-4. **Smart Refactor**: Automatically refactor and integrate generated tests into an existing repository's Page Object Model (POM)
-5. Output structured JSON results
+- **AI-Powered Reasoning**: Uses Google Gemini to understand test instructions and decide on actions
+- **Model Context Protocol (MCP)**: Bridges AI with Playwright's browser automation capabilities
+- **Agentic Loop**: Continuous feedback loop that learns from browser state and adapts
+- **Smart Refactoring**: Automatically integrates generated tests into existing Page Object Model (POM) repositories
 
-## Prerequisites
+### Core Capabilities
 
-### Install Bun
+```mermaid
+graph LR
+    A[Natural Language Input] --> B[AI Agent Loop]
+    B --> C[Browser Automation]
+    B --> D[Script Generation]
+    B --> E[Smart Refactor]
+```
 
-#### macOS / Linux
+---
+
+## Architecture
+
+### High-Level System Architecture
+
+```mermaid
+graph TB
+    UI[User Command] --> CLI[CLI qa-test]
+    CLI --> ARGS[Argument Parser]
+    ARGS --> RUNNER[QA Runner]
+    RUNNER --> AGENT[Agent Loop]
+    AGENT --> GEMINI[Gemini Model]
+    AGENT --> TOOLS[Tool Handler]
+    TOOLS --> MCP[MCP Client]
+    MCP --> TRANSPORT[StdI/O Transport]
+    TRANSPORT --> PWSERVER[Playwright MCP]
+    TRANSPORT --> FSSERVER[Filesystem MCP]
+    PWSERVER --> BROWSER[Real Browser]
+    FSSERVER --> FILES[File System]
+```
+
+---
+
+## Technology Stack
+
+### Core Dependencies
+
+| Package | Purpose | Version |
+|---------|---------|---------|
+| `@google/generative-ai` | Gemini AI SDK for reasoning and decision making | ^0.21.0 |
+| `@modelcontextprotocol/sdk` | MCP client implementation for tool bridging | ^1.0.4 |
+| `dotenv` | Environment variable loading from .env files | ^16.4.7 |
+| `picocolors` | Terminal color formatting | ^1.0.0 |
+
+### Development Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `bun-types` | TypeScript definitions for Bun runtime |
+| `typescript` | Type checking and build tooling |
+
+### External Services & Tools
+
+```mermaid
+graph LR
+    GEMINI[Google Gemini AI Studio] --> PLUGIN[QA Playwright Plugin]
+    PLUGIN --> MCP[Playwright MCP]
+    MCP --> BROWSER[Real Browser]
+```
+
+---
+
+## Component Breakdown
+
+### 1. CLI Entry Point (`bin/qa-test.ts`)
+
+The CLI is the user-facing interface:
+
+```mermaid
+flowchart TD
+    START([Start]) --> PARSE[Parse Arguments]
+    PARSE --> VALID{Required fields<br/>present?}
+    VALID -->|No| HELP[Show Help]
+    HELP --> EXIT1[Exit 1]
+    VALID -->|Yes| RUN[Call runQATest]
+    RUN --> RESULT[Get QATestResult]
+    RESULT --> OUTPUT[Output JSON]
+    OUTPUT --> EXIT[Exit 0/1]
+```
+
+### 2. Core Runner (`src/runner.ts`)
+
+The runner orchestrates the entire test execution:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Runner
+    participant AgentLoop
+    participant MCP
+    participant Browser
+    
+    User->>Runner: runQATest(options)
+    Runner->>MCP: Connect
+    Runner->>AgentLoop: Create
+    AgentLoop->>MCP: listTools()
+    MCP-->>AgentLoop: Tools
+    
+    loop Agent Loop (max 50)
+        AgentLoop->>MCP: callTool()
+        MCP->>Browser: Execute
+        Browser-->>MCP: Result
+        MCP-->>AgentLoop: Result
+    end
+    
+    AgentLoop-->>Runner: Final result
+    Runner->>Runner: Save script
+    Runner-->>User: JSON Result
+```
+
+### 3. QA Engineer Agent (`src/agent.ts`)
+
+Defines the AI's persona and behavior:
+
+```mermaid
+graph LR
+    P[Instruction Parsing] --> EXEC[Execute]
+    A[Browser Automation] --> EXEC
+    V[Verification] --> EXEC
+    S[Script Generation] --> EXEC
+    R[Error Recovery] --> EXEC
+    
+    EXEC --> PHASE1[Phase 1: Parse]
+    EXEC --> PHASE2[Phase 2: Execute]
+    EXEC --> PHASE3[Phase 3: Generate]
+    
+    STRATEGY1[1. By Role] --> STRATEGY2[2. By Label]
+    STRATEGY2 --> STRATEGY3[3. By Text]
+    STRATEGY3 --> STRATEGY4[4. By Test ID]
+    STRATEGY4 --> STRATEGY5[5. By CSS]
+```
+
+### 4. Agent Loop (`src/agent-loop.ts`)
+
+The core AI orchestration engine:
+
+```mermaid
+flowchart TD
+    START([Start]) --> INIT[Initialize Gemini]
+    INIT --> TOOLS[Get MCP Tools]
+    TOOLS --> CHAT[Start Chat]
+    
+    CHAT --> SEND[Send to Gemini]
+    SEND --> RESPONSE[Get Response]
+    RESPONSE --> CHECK{Tool calls?}
+    
+    CHECK -->|Yes| EXEC[Execute Tool]
+    EXEC --> FEED[Feed back]
+    FEED --> SEND
+    
+    CHECK -->|No| END_CHECK{Done?}
+    END_CHECK -->|Yes| RETURN[Return]
+    END_CHECK -->|No| NUDGE[Nudge]
+    NUDGE --> SEND
+    
+    RETURN --> FINISH([End])
+```
+
+### 5. MCP Runner (`src/mcp-runner.ts`)
+
+Implements the Model Context Protocol client:
+
+```mermaid
+graph TD
+    CLIENT[MCP Client] --> TRANSPORT[StdI/O Transport]
+    TRANSPORT --> LIST[listTools]
+    TRANSPORT --> CALL[callTool]
+    TRANSPORT --> CLEAN[cleanup]
+    
+    LIST --> JSON[JSON-RPC]
+    CALL --> JSON
+    JSON --> SERVER[MCP Server]
+```
+
+### 6. Refactor Agent (`src/refactor-agent.ts`)
+
+Handles POM integration:
+
+```mermaid
+flowchart TD
+    START([Start]) --> INIT[Init Filesystem MCP]
+    INIT --> EXPLORE[Explore Repo]
+    EXPLORE --> REFACTOR[Refactor Script]
+    REFACTOR --> DECISION{Add or New?}
+    
+    DECISION -->|Add| EXISTING[Add to existing]
+    DECISION -->|New| NEW[Create new]
+    
+    EXISTING --> WRITE[Write]
+    NEW --> WRITE
+    WRITE --> VERIFY[Verify]
+    VERIFY --> END([End])
+```
+
+### 7. Output Module (`src/output.ts`)
+
+Handles result formatting and parsing:
+
+```mermaid
+flowchart LR
+    RAW[Raw Output] --> PARSE[Parse]
+    PARSE --> STATUS[Extract Status]
+    PARSE --> SCRIPT[Extract Script]
+    PARSE --> ERRORS[Extract Errors]
+    
+    STATUS --> RESULT[QATestResult]
+    SCRIPT --> RESULT
+    ERRORS --> RESULT
+    
+    RESULT --> JSON[JSON.stringify]
+    JSON --> OUT[stdout]
+```
+
+---
+
+## Data Flow
+
+### Complete Data Flow Diagram
+
+```mermaid
+graph LR
+    USER[User Input] --> CLI[CLI]
+    CLI --> RUNNER[Runner]
+    RUNNER --> AGENT[Agent Loop]
+    AGENT --> MCP[MCP Client]
+    MCP --> PWSERVER[Playwright MCP]
+    PWSERVER --> BROWSER[Browser]
+    
+    BROWSER --> RESULT[Result]
+    RESULT --> AGENT
+    AGENT --> RUNNER
+    
+    RUNNER --> SCRIPT[Save Script]
+    RUNNER --> REFACTOR{Smart Refactor?}
+    REFACTOR -->|Yes| FSSERVER[Filesystem MCP]
+    FSSERVER --> PROJECT[Project Files]
+    REFACTOR -->|No| OUTPUT[JSON Output]
+```
+
+### Message Flow in Agent Loop
+
+```mermaid
+sequenceDiagram
+    participant Gemini
+    participant MCP
+    participant Browser
+    
+    Gemini->>MCP: Tool call
+    MCP->>Browser: Execute action
+    Browser-->>MCP: Result
+    MCP-->>Gemini: Result
+    
+    loop Continue until completion
+        Gemini->>MCP: Next tool call
+        MCP->>Browser: Execute
+        Browser-->>MCP: Result
+        MCP-->>Gemini: Result
+    end
+    
+    Gemini-->>Gemini: Return final result
+```
+
+---
+
+## How It Works
+
+### Step-by-Step Execution
+
+```mermaid
+flowchart TD
+    START([User Command]) --> STEP1[CLI Parses]
+    STEP1 --> STEP2[Runner Initializes]
+    STEP2 --> STEP3[Generate Prompt]
+    STEP3 --> ITER1[Iter 1: Navigate]
+    ITER1 --> ITER2[Iter 2: Interact]
+    ITER2 --> ITER3[Iter 3: Verify]
+    ITER3 --> STEP4[Script Generation]
+    STEP4 --> STEP5[Save Script]
+    STEP5 --> CHECK{Refactor?}
+    
+    CHECK -->|Yes| REFACTOR[Smart Refactor]
+    CHECK -->|No| OUTPUT[JSON Result]
+    REFACTOR --> OUTPUT
+    
+    OUTPUT --> END([End])
+```
+
+---
+
+## CLI Options
+
+| Option | Alias | Description | Default |
+|--------|-------|-------------|---------|
+| `--output` | `-o` | Output directory for artifacts | `~/qa-playwright-results` |
+| `--base-url` | `-b` | Base URL for relative paths | (none) |
+| `--target-repo` | `-r` | Path to existing repository for Smart Refactor | (none) |
+| `--timeout` | `-t` | Timeout in milliseconds | `300000` (5 minutes) |
+| `--log` | `-l` | Enable verbose logging | `false` |
+| `--help` | `-h` | Show help message | - |
+
+### Usage Examples
+
 ```bash
-# Install Bun (recommended)
+# Basic test
+qa-test "Navigate to example.com and verify the heading"
+
+# With base URL
+qa-test "Test login flow" --base-url https://staging.myapp.com
+
+# With output directory
+qa-test "Test checkout" -o /tmp/my-tests
+
+# With Smart Refactor
+qa-test "Test login" -r /path/to/my-playwright-project
+
+# Verbose mode
+qa-test "Test search" --log
+
+# Custom timeout
+qa-test "Complex test" -t 600000
+```
+
+---
+
+## Generated Scripts
+
+### Example Output
+
+```typescript
+// Generated test.spec.ts
+import { test, expect } from '@playwright/test';
+
+test('QA Test: Verify h1 heading', async ({ page }) => {
+  await page.goto('https://example.com');
+  await expect(page.locator('h1')).toHaveText('Example Domain');
+});
+```
+
+### After Smart Refactoring
+
+```typescript
+// Refactored to match project patterns
+import { test, expect } from '@playwright/test';
+import { HomePage } from './pages/HomePage';
+
+test.describe('Home Page Tests', () => {
+  test('should display correct heading', async ({ page }) => {
+    const homePage = new HomePage(page);
+    await homePage.goto();
+    await expect(homePage.heading).toHaveText('Example Domain');
+  });
+});
+```
+
+---
+
+## Environment Setup
+
+### Prerequisites
+
+1. **Bun Runtime** (required)
+```bash
+# macOS/Linux
 curl -fsSL https://bun.sh/install | bash
 
-# Restart your terminal or run:
-source ~/.bashrc
-```
-
-#### Windows (PowerShell)
-```powershell
-# Install Bun using PowerShell
+# Windows (PowerShell)
 irm bun.sh/install.ps1 | iex
 
-# Restart PowerShell after installation
-```
-
-#### Alternative: Install via npm/yarn
-```bash
-# If you have npm/yarn already
-npm install -g bun
-# or
-yarn global add bun
-```
-
-**Verify installation:**
-```bash
+# Verify
 bun --version
 ```
 
-## Installation
+2. **Gemini API Key** (required)
+   - Get from: https://makersuite.google.com/app/apikey
+   - Set via: `export GEMINI_API_KEY="your_key"`
+
+### Installation
 
 ```bash
 # Clone or copy the plugin
@@ -58,181 +414,11 @@ bun install
 # Build
 bun run build
 
-# Link globally (optional)
+# Optional: Link globally
 npm link
 ```
 
-## Usage
-
-### Get Gemini API Key
-
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click "Create API Key"
-4. Copy the generated API key
-
-### Set API Key
-
-#### Option 1: Environment Variable (temporary)
-```bash
-# macOS/Linux
-export GEMINI_API_KEY="your_api_key_here"
-
-# Windows (PowerShell)
-$env:GEMINI_API_KEY="your_api_key_here"
-
-# Windows (Command Prompt)
-set GEMINI_API_KEY=your_api_key_here
-```
-
-#### Option 2: .env File (recommended)
-Create a `.env` file in the project root:
-```bash
-GEMINI_API_KEY=your_api_key_here
-```
-
-The `.env` file will be automatically loaded when running the tool.
-
-### Basic Usage
-
-```bash
-# Run with bun (development)
-bun run dev "Navigate to example.com and verify the heading says 'Example Domain'"
-
-# After building
-./dist/bin/qa-test.js "Test instruction here"
-
-# After npm link
-qa-test "Test instruction here"
-```
-
-### CLI Options
-
-```bash
-qa-test "<instruction>" [options]
-
-Options:
-  -o, --output <dir>    Output directory for artifacts (default: ~/qa-playwright-results)
-  -b, --base-url <url>  Base URL for relative paths
-  -r, --target-repo <path> Path to existing repository for Smart Refactor and Integration
-  -t, --timeout <ms>    Timeout in milliseconds (default: 300000)
-  -l, --log             Enable verbose logging of agent progress to stderr
-  -h, --help            Show help
-```
-
-## How It Works: The Standalone Agentic Loop
-
-This tool operates through an internal "Agentic Loop":
-
-### 1. The Architect (System Persona)
-*   Defines the "QA Engineer" persona and strict fallback strategies (e.g., trying Role > Label > Text).
-*   Orchestrates the session and manages inputs.
-
-### 2. Local File Path Resolution
-*   **Automatic Context Injection**: The runner automatically detects absolute file paths in your natural language instructions.
-*   **Data Security/Ease**: It reads the contents of those files (e.g., `login.txt` with credentials) and injects them into the prompt environment, so the AI has the values without you needing to paste sensitive data into the command line.
-
-### 3. The Agent Loop (The Intelligence & Dispatcher)
-*   **Gemini AI**: Powers the reasoning engine that decides which actions to take.
-*   **Automatic Feedback Loop**: When a browser action fails (e.g., "element not found"), the plugin automatically feeds that error back to the AI. This allows the AI to immediately rethink its next move based on real-time browser state.
-*   **Tool Gateway**: Directly communicates with **Playwright MCP** via JSON-RPC to execute browser commands.
-
-### 4. Verification & Script Composition
-*   After every action, the AI verifies the result before moving to the next step.
-*   Once finished, it compiles successful actions into a clean, production-ready Playwright script.
-
-### 5. Smart Refactor & Integration (Optional)
-*   If a `--target-repo` is provided, a second agent is spawned to:
-    *   Explore your repository's structure (Page Objects, tests, fixtures).
-    *   Refactor the "raw" generated script into your project's coding style and POM.
-    *   Integrate the new test case and any required Page Object updates directly into your codebase.
-
-## Generated Scripts
-
-The plugin generates production-ready Playwright test code:
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test('QA Test: Login flow', async ({ page }) => {
-  await page.goto('https://example.com/login');
-  await page.getByLabel('Email').fill('test@example.com');
-  await page.getByRole('button', { name: 'Submit' }).click();
-  await expect(page.getByText('Welcome')).toBeVisible();
-});
-```
-
-You can run generated scripts with:
-
-```bash
-npx playwright test /path/to/generated.spec.ts
-```
-
-## Architecture
-
-### ASCII Overview
-
-```text
-         [ 1. Input ]
-              │
-    ┌─────────▼────────────────────────┐
-    │     CLI (qa-test)                │
-    └─────────┬────────────────────────┘
-              │ 2. Setup & Context
-    ┌─────────▼────────────────────────┐
-    │   QA Playwright Plugin           │
-    │   (Strategy & File Resolver)     │
-    └─────────┬────────────────────────┘
-              │ 3. Agent Loop (Gemini)
-    ┌─────────▼────────────────────────┐        ┌──────────────────┐
-    │      Internal Dispatcher         │◄───────┤ Feedback Loop    │
-    │   (Intelligence & Tool Calls)    │        │ (Errors/Results) │
-    └─────────┬────────────────────────┘        └────────▲─────────┘
-              │ 4. Tool Execution                        │
-    ┌─────────▼────────────────────────┐        ┌────────┴─────────┐
-    │      Playwright MCP              ├────────►  Test Reports    │
-    │    (Browser Automation)          │        │     (JSON)       │
-    └─────────┬───────────▲────────────┘        └──────────────────┘
-              │           │                              │
-              │ Actions   │ Selectors                    │ 5. Save
-    ┌─────────▼───────────┴────────────┐        ┌────────┴─────────┐
-    │       Real Browser               │        │  Local Artifacts │
-    │   (Chrome/Firefox/Webkit)        │        │ (.spec.ts files) │
-    └──────────────────────────────────┘        └──────────────────┘
-              │                                          │
-              │ (Optional Integration)                   ▼
-    ┌─────────▼──────────────────────────────────────────────┐
-    │      Smart Refactor Agent (Target Repo Integration)     │
-    └────────────────────────────────────────────────────────┘
-```
-
-### Flow Diagram (Mermaid)
-
-```mermaid
-graph TD
-    User([User Instruction]) --> CLI[qa-test CLI]
-    CLI --> Runner[Runner]
-    
-    subgraph "QA Playwright Plugin"
-        Runner --> FileResolve[File Path Resolver]
-        Runner --> PromptGen[Prompt Generator]
-        Runner --> AgentLoop[Agent Loop]
-        
-        AgentLoop <--> Gemini[Gemini AI]
-        AgentLoop <--> MCP[MCP Runner]
-    end
-    
-    MCP <--> PlaywrightMCP[Playwright MCP Server]
-    PlaywrightMCP <--> Browser[Real Browser]
-    
-    AgentLoop --> ScriptGen[Script Generator]
-    ScriptGen --> Output[Local Artifacts .spec.ts]
-    
-    Runner -.-> RefactorAgent[Smart Refactor Agent]
-    RefactorAgent -.-> TargetRepo[(Target Repository)]
-    TargetRepo -.-> RefactorAgent
-    RefactorAgent -.-> Output
-```
+---
 
 ## License
 
